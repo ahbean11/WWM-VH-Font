@@ -7,7 +7,6 @@ import struct
 import re
 import sys
 import hashlib
-import qrcode
 from io import BytesIO
 import base64
 import uuid # Dùng để tạo ID cho khách vãng lai

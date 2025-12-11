@@ -1,4 +1,7 @@
 flask
 pandas
-gunicorn
 requests
+gunicorn
+flask-sqlalchemy
+flask-login
+flask-bcrypt

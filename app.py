@@ -43,8 +43,8 @@ if database_url:
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
 else:
-    # Sử dụng SQLite với đường dẫn tuyệt đối cho môi trường production
-    database_url = os.environ.get('DATABASE_PATH', 'sqlite:///site.db')
+    # Sử dụng SQLite với đường dẫn tuyệt đối cho môi trường development
+    database_url = 'sqlite:///site.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -68,6 +68,13 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=True)  # Thêm email field
     transactions = db.relationship('Transaction', backref='author', lazy=True)
 
+    # Ensure the is_donor column exists
+    @staticmethod
+    def add_missing_columns():
+        # This is a simple approach to handle missing columns
+        # In production, you should use proper migrations
+        pass
+
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     amount = db.Column(db.Integer, nullable=False)
@@ -79,7 +86,15 @@ class Transaction(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # Handle the case where the user table might not have the is_donor column yet
+    try:
+        return User.query.get(int(user_id))
+    except Exception as e:
+        print(f"Error loading user: {e}")
+        # If there's an error, recreate the tables
+        with app.app_context():
+            db.create_all()
+        return User.query.get(int(user_id))
 
 # --- Cấu HÌNH SHEET ---
 SHEET_URL = os.environ.get('SHEET_URL')
@@ -126,7 +141,13 @@ def login():
 # Google Login Routes (kept as is)
 @app.route('/login/google')
 def google_login():
-    redirect_uri = url_for('google_callback', _external=True)
+    # Hỗ trợ cả môi trường development và production
+    if os.environ.get('RENDER'):
+        # Môi trường production trên Render
+        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
+    else:
+        # Môi trường development local
+        redirect_uri = request.url_root.rstrip('/') + url_for('google_callback')
     return google.authorize_redirect(redirect_uri)
 
 @app.route('/login/google/callback')

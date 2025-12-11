@@ -12,7 +12,7 @@
         /* Hero Section */
         .hero { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 60px 0; margin-bottom: 30px; }
         .hero-donate { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #333; padding: 50px 0; border-radius: 20px; margin-top: 50px;}
-
+        
         /* Card Styles */
         .card-version { transition: transform 0.2s; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
         .card-version:hover { transform: translateY(-3px); }
@@ -93,14 +93,43 @@
                                 <p class="card-text text-muted small"><i class="fa-regular fa-lightbulb"></i> {{ item.note or 'Chưa có ghi chú.' }}</p>
                             </div>
                             <div class="col-md-4 text-end">
-                                {% if item.link.lower().startswith('http') %}
-                                    <a href="{{ item.link }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100">
-                                        <i class="fa-solid fa-download"></i> TẢI VỀ
-                                    </a>
+                                <!-- Kiểm tra trạng thái đăng nhập -->
+                                {% if current_user.is_authenticated %}
+                                    <!-- Người dùng đã đăng nhập -->
+                                    <!-- Hiển thị link_Normal nếu có -->
+                                    {% if 'link_normal' in item and item.link_normal and item.link_normal.lower().startswith('http') %}
+                                        <a href="{{ item.link_normal }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100 mb-2">
+                                            <i class="fa-solid fa-download"></i> LINK THƯỜNG
+                                        </a>
+                                    {% elif 'link' in item and item.link and item.link.lower().startswith('http') %}
+                                        <!-- Fallback cho cột link cũ nếu có -->
+                                        <a href="{{ item.link }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100 mb-2">
+                                            <i class="fa-solid fa-download"></i> LINK THƯỜNG
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary w-100 disabled mb-2">
+                                            <i class="fa-solid fa-ban"></i> {% if 'link_normal' in item %}{{ item.link_normal or 'Đang cập nhật' }}{% else %}Đang cập nhật{% endif %}
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <!-- Hiển thị link_VIP nếu người dùng là VIP (đã donate) -->
+                                    {% if current_user.is_donor %}
+                                        {% if 'link_vip' in item and item.link_vip and item.link_vip.lower().startswith('http') %}
+                                            <a href="{{ item.link_vip }}" target="_blank" class="btn btn-warning btn-download shadow-sm w-100">
+                                                <i class="fa-solid fa-crown"></i> LINK VIP
+                                            </a>
+                                        {% endif %}
+                                    {% else %}
+                                        <!-- Người dùng thường không thấy link VIP -->
+                                        <button class="btn btn-outline-warning w-100 disabled" disabled>
+                                            <i class="fa-solid fa-lock"></i> Dành cho VIP
+                                        </button>
+                                    {% endif %}
                                 {% else %}
-                                    <button class="btn btn-secondary w-100 disabled">
-                                        <i class="fa-solid fa-ban"></i> {{ item.link or 'Đang cập nhật' }}
-                                    </button>
+                                    <!-- Người dùng chưa đăng nhập -->
+                                    <a href="/login" class="btn btn-info w-100 mb-2">
+                                        <i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP ĐỂ XEM LINK
+                                    </a>
                                 {% endif %}
                             </div>
                         </div>

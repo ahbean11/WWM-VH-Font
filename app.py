@@ -109,9 +109,134 @@ def get_data():
         return df.to_dict('records')
     except: return []
 
-# --- CÁC CLASS XỬ LÝ FONT (GIẢ LẬP) ---
-# Bạn cần paste code SteamPatcher và LauncherPatcher thật vào đây
-# Ở đây mình viết hàm giả lập để code chạy được demo
+# --- CÁC CLASS XỬ LÝ FONT ---
+class LauncherPatcher:
+    ZH_FONTS = [
+        b'HanYiQuanTangShiS.ttf', b'ZHJB-Xiangjiahong_fanti.TTF', b'AaShiSongTi-2.ttf'
+    ]
+    EUROPEAN_FONTS = [
+        b'AlegreyaSans-Medium.ttf', b'AlegreyaSans-Regular.ttf', b'MrsEavSmaCap.ttf'
+    ]
+
+    @staticmethod
+    def find_font_entries(data):
+        entries = []
+        target_fonts = LauncherPatcher.ZH_FONTS + LauncherPatcher.EUROPEAN_FONTS
+        
+        for font_name in target_fonts:
+            pos = 0
+            while True:
+                pos = data.find(font_name, pos)
+                if pos == -1: break
+                start = max(0, pos - 50)
+                end = min(len(data), pos + len(font_name) + 50)
+                context = data[start:end]
+                if not (b'<File>' in context and b'</File>' in context):
+                     entries.append({'type': 'font_raw', 'font_name': font_name, 'position': pos})
+                pos += len(font_name)
+
+        pos = 0
+        while True:
+            pos = data.find(b'<Root>', pos)
+            if pos == -1: break
+            root_end = data.find(b'</Root>', pos)
+            if root_end != -1:
+                root_end += len(b'</Root>')
+                xml_content = data[pos:root_end]
+                if b'<Font>' in xml_content:
+                    entries.append({
+                        'type': 'xml',
+                        'position': pos,
+                        'length': len(xml_content),
+                        'content': xml_content
+                    })
+            pos += len(b'<Root>')
+        return entries
+
+    @classmethod
+    def patch(cls, mpk_path, output_path, font_filename_str="normal.ttf"):
+        if not os.path.exists(mpk_path): return False, "File MPK không tồn tại trên server"
+        
+        print(f"--> [INFO] Đang đọc file: {mpk_path}", flush=True)
+        try:
+            with open(mpk_path, 'rb') as f:
+                data = bytearray(f.read())
+            print(f"--> [INFO] Kích thước file: {len(data)/1024/1024:.2f} MB", flush=True)
+        except Exception as e:
+            return False, f"Lỗi đọc file: {e}"
+
+        new_font_name = font_filename_str.encode('utf-8')
+        entries = cls.find_font_entries(data)
+        
+        if not entries:
+            # Check xem có phải file đã patch rồi không?
+            if b'NormalFont' in data or b'custom.ttf' in data or b'normal.ttf' in data:
+                return False, "File này CÓ VẼ ĐÃ ĐƯỢC PATCH RỒI (Tìm thấy 'normal.ttf' hoặc 'NormalFont'). Vui lòng dùng file gốc chưa sửa."
+            return False, "Không tìm thấy dữ liệu Font gốc trong file MPK. Hãy chắc chắn bạn upload đúng file Resources.mpk gốc."
+
+        print(f"--> [INFO] Tìm thấy {len(entries)} vị trí cần sửa.", flush=True)
+        replacements = 0
+        
+        for entry in entries:
+            if entry['type'] == 'xml':
+                try:
+                    old_xml = entry['content']
+                    xml_str = old_xml.decode('utf-8', errors='ignore')
+                    font_block_pattern = r'(<Font>[\s\S]*?</Font>)'
+                    
+                    def block_replacer(match):
+                        block_content = match.group(1)
+                        targets = ['normal text', 'title text', 'art text', 'europe', 'zh_tw']
+                        is_target = any(t in block_content.lower() for t in targets)
+                        
+                        if not is_target:
+                            for f_bytes in (cls.ZH_FONTS + cls.EUROPEAN_FONTS):
+                                if f_bytes.decode('utf-8', errors='ignore') in block_content:
+                                    is_target = True; break
+
+                        if is_target:
+                            block_content = re.sub(r'<File>([^<]+)</File>', f'<File>{font_filename_str}</File>', block_content)
+                            block_content = re.sub(r'<Name>([^<]+)</Name>', f'<Name>NormalFont</Name>', block_content)
+                        return block_content
+
+                    new_xml_str = re.sub(font_block_pattern, block_replacer, xml_str)
+                    new_xml = new_xml_str.encode('utf-8')
+                    
+                    start = entry['position']
+                    length = entry['length']
+                    
+                    if len(new_xml) <= length:
+                        padding_len = length - len(new_xml)
+                        padded = new_xml + b' ' * padding_len 
+                        data[start : start+length] = padded
+                        replacements += 1
+                except: continue
+
+            elif entry['type'] == 'font_raw':
+                pos = entry['position']
+                old_len = len(entry['font_name'])
+                expand_end = pos + old_len
+                while expand_end < len(data) and data[expand_end] == 0:
+                    expand_end += 1
+                available_len = expand_end - pos
+                
+                if len(new_font_name) <= available_len:
+                    padded = new_font_name + b'\x00' * (available_len - len(new_font_name))
+                    data[pos : expand_end] = padded
+                    replacements += 1
+
+        if replacements > 0:
+            print(f"--> [INFO] Đã thay thế {replacements} vị trí. Đang ghi file...", flush=True)
+            try:
+                with open(output_path, 'wb') as f:
+                    f.write(data)
+                return True, f"Thành công! Patch {replacements} vị trí."
+            except OSError as e:
+                return False, f"Lỗi ghi đĩa (Ổ cứng đầy?): {e}"
+        
+        return False, "Không có thay đổi nào được thực hiện (Logic thay thế không khớp)."
+
+
 def process_font_logic(font_file_path, output_path):
     """
     Placeholder function for font processing.
@@ -250,6 +375,106 @@ def process_font():
             return send_file(output_path, as_attachment=True)
     
     return redirect(url_for('font_tool'))
+
+
+# --- CHỨC NĂNG PATCH FONT CHO LAUNCHER ---
+@app.route('/patch-font-launcher', methods=['GET', 'POST'])
+@login_required
+def patch_font_launcher():
+    # Kiểm tra quyền truy cập - chỉ VIP hoặc người dùng có lượt dùng thử
+    can_access = False
+    
+    # VIP donors can use unlimited times
+    if current_user.is_donor:
+        can_access = True
+        flash('Xin chào Nhà tài trợ VIP! Bạn có thể sử dụng chức năng patch font không giới hạn.', 'success')
+    # Regular members get 1 free trial
+    elif current_user.free_trials > 0:
+        can_access = True
+        flash(f'Bạn có 1 lần dùng thử miễn phí. Lượt còn lại: {current_user.free_trials}', 'info')
+    else:
+        flash('Bạn đã hết lượt dùng thử. Hãy trở thành Nhà tài trợ VIP để sử dụng không giới hạn!', 'warning')
+        return redirect(url_for('font_tool'))
+    
+    if request.method == 'POST' and can_access:
+        # Kiểm tra file upload
+        if 'mpk_file' not in request.files or 'font_file' not in request.files:
+            flash('Vui lòng chọn đủ file MPK và file Font!', 'danger')
+            return redirect(request.url)
+            
+        mpk = request.files['mpk_file']
+        font = request.files['font_file']
+        
+        if mpk.filename == '' or font.filename == '':
+            flash('Vui lòng chọn đủ file MPK và file Font!', 'danger')
+            return redirect(request.url)
+        
+        print("--> [REQ] Nhận được yêu cầu patch...", flush=True)
+        temp_dir = None
+        try:
+            # Tự động tìm ổ đĩa trống để tạo temp (tránh lỗi ổ C đầy)
+            temp_dir = tempfile.mkdtemp()
+            
+            from werkzeug.utils import secure_filename
+            mpk_name = secure_filename(mpk.filename)
+            
+            mpk_path = os.path.join(temp_dir, mpk_name)
+            print(f"--> [IO] Đang lưu file tạm: {mpk_path}", flush=True)
+            mpk.save(mpk_path)
+            
+            target_font_name = "normal.ttf" 
+            font_path = os.path.join(temp_dir, target_font_name)
+            font.save(font_path)
+            
+            output_mpk_path = os.path.join(temp_dir, f"Patched_{mpk_name}")
+            
+            # Gọi hàm Patch
+            success, msg = LauncherPatcher.patch(mpk_path, output_mpk_path, target_font_name)
+            
+            if success:
+                import zipfile
+                zip_filename = "WWM_Launcher_Patch.zip"
+                zip_path = os.path.join(temp_dir, zip_filename)
+                
+                print("--> [ZIP] Đang nén file...", flush=True)
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(output_mpk_path, arcname="Resources.mpk")
+                    zipf.write(font_path, arcname="Engine/Content/Fonts/normal.ttf")
+                    
+                    # Thêm các file assets nếu có
+                    ASSETS_DIR = os.path.join(os.path.dirname(__file__), 'patch-font', 'assets')
+                    if os.path.exists(ASSETS_DIR):
+                        for filename in ['Fonts.xml', 'title.ttf', 'art.ttf']:
+                            file_src = os.path.join(ASSETS_DIR, filename)
+                            if os.path.exists(file_src):
+                                zipf.write(file_src, arcname=f"Engine/Content/Fonts/{filename}")
+                
+                # Giảm số lượt dùng thử nếu là người dùng thường
+                if not current_user.is_donor:
+                    current_user.free_trials -= 1
+                    db.session.commit()
+                
+                print("--> [DONE] Xử lý xong, đang gửi file về client.", flush=True)
+                return send_file(zip_path, as_attachment=True, download_name=zip_filename)
+            else:
+                print(f"--> [FAIL] Lỗi logic: {msg}", flush=True)
+                flash(msg, 'danger')
+                return redirect(request.url)
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            flash(f'Lỗi Server: {str(e)}', 'danger')
+            return redirect(request.url)
+        finally:
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except: pass
+    
+    return render_template('patch_font_launcher.html', 
+                          is_vip=current_user.is_donor,
+                          free_trials=current_user.free_trials)
 
 # --- NẠP TIỀN CHO THÀNH VIÊN ---
 @app.route('/profile')

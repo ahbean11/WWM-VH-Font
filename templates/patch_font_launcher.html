@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patch Font cho Launcher - WWM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-light">
+    
+    <div class="container mt-5" style="max-width: 800px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-primary"><i class="fa-solid fa-font"></i> Patch Font cho Launcher</h2>
+            <a href="{{ url_for('font_tool') }}" class="btn btn-outline-secondary">Quay lại công cụ</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-user-lock"></i> Chức năng chỉ dành cho thành viên đã đăng nhập</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if current_user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <strong>Xin chào, {{ current_user.username }}!</strong><br>
+                        {% if is_vip %}
+                        <span class="badge bg-success"><i class="fas fa-crown"></i> NHÀ TÀI TRỢ VIP</span><br>
+                        <small>Bạn có thể sử dụng công cụ không giới hạn lần.</small>
+                        {% else %}
+                        <span class="badge bg-primary"><i class="fas fa-user"></i> THÀNH VIÊN THƯỜNG</span><br>
+                        <small>Lượt miễn phí còn lại: <strong>{{ free_trials }}</strong></small>
+                        {% endif %}
+                    </div>
+                    
+                    {% if is_vip or free_trials > 0 %}
+                    <form action="{{ url_for('patch_font_launcher') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">1. File Resources.mpk</label>
+                            <input type="file" name="mpk_file" class="form-control" accept=".mpk" required>
+                            <div class="form-text">File Resources.mpk gốc từ game Launcher.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">2. File Font (.ttf)</label>
+                            <input type="file" name="font_file" class="form-control" accept=".ttf" required>
+                            <div class="form-text">File font sẽ được đổi tên thành <b>normal.ttf</b> bên trong game.</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">
+                            {% if is_vip %}
+                                <i class="fas fa-crown"></i> PATCH FONT (Dành cho VIP)
+                            {% else %}
+                                {% if free_trials > 0 %}
+                                    PATCH FONT (Miễn phí - Còn {{ free_trials }} lần)
+                                {% endif %}
+                            {% endif %}
+                        </button>
+                    </form>
+                    
+                    <div class="mt-4">
+                        <h5><i class="fas fa-info-circle"></i> Hướng dẫn sử dụng</h5>
+                        <ol>
+                            <li>Chuẩn bị file Resources.mpk gốc từ game Launcher</li>
+                            <li>Chọn file font (.ttf) mà bạn muốn sử dụng</li>
+                            <li>Nhấn nút "PATCH FONT" để bắt đầu xử lý</li>
+                            <li>Tải về file zip kết quả và giải nén vào thư mục game</li>
+                        </ol>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Hết lượt dùng thử</h5>
+                        <p>Bạn đã hết lượt dùng thử miễn phí. Để tiếp tục sử dụng công cụ:</p>
+                        <ol>
+                            <li>Trở thành Nhà tài trợ VIP bằng cách nạp 10.000đ hoặc hơn</li>
+                            <li><a href="{{ url_for('profile') }}" class="btn btn-success btn-sm">Nạp tiền ngay</a></li>
+                        </ol>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <h4><i class="fas fa-lock"></i> Chức năng này chỉ dành cho thành viên</h4>
+                        <p class="text-muted">Vui lòng đăng nhập bằng Google để sử dụng công cụ patch font</p>
+                        <a href="{{ url_for('google_login') }}" class="btn btn-danger">
+                            <i class="fab fa-google"></i> Đăng nhập bằng Google
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -72,9 +72,9 @@
 
 <script>
     // Cấu hình từ Server
-    const BANK_ACC = "100872675193";
-    const BANK_NAME = "VietinBank";
-    const CONTENT = "SEVQR Chuyen tien"; // Ví dụ: WWM 15
+    const BANK_ACC = "{{ bank_acc }}";
+    const BANK_NAME = "{{ bank_name }}";
+    const CONTENT = "{{ transfer_content }}";
     
     // Hàm cập nhật QR
     function updateQR(amount) {

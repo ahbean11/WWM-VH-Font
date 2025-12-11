@@ -41,14 +41,16 @@ google = oauth.register(
     }
 )
 
-# Xử lý Database URL từ Render
+# XỬ LÝ DATABASE (CHỈ DÙNG POSTGRESQL)
 database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-else:
-    # Sử dụng SQLite với đường dẫn tuyệt đối cho môi trường development
-    database_url = 'sqlite:///site.db'
+
+if not database_url:
+    # Báo lỗi ngay lập tức nếu không tìm thấy biến môi trường, tránh dùng nhầm SQLite
+    raise ValueError("LỖI: Chưa cấu hình biến môi trường 'DATABASE_URL'. Bắt buộc dùng PostgreSQL.")
+
+# Fix lỗi tương thích cho thư viện SQLAlchemy đời mới (postgres:// -> postgresql://)
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -119,13 +121,83 @@ def get_data():
 # Ở đây mình viết hàm giả lập để code chạy được demo
 def process_font_logic(font_file_path, output_path):
     """
-    Placeholder function for font processing.
-    Will be implemented later as per requirements.
+    Process font files according to requirements:
+    - Rename uploaded TTF file to normal.ttf
+    - Get title.ttf and art.ttf from /assets/ directory
+    - Package everything in the correct directory structure
     """
-    # TODO: Implement actual font patching logic here
-    # For now, just copy the file as a placeholder
-    shutil.copy(font_file_path, output_path)
-    return True
+    import os
+    import zipfile
+    from pathlib import Path
+    
+    try:
+        # Create temporary directory for processing
+        temp_dir = os.path.dirname(output_path)
+        assets_dir = os.path.join(os.path.dirname(__file__), 'patch-font', 'assets')
+        
+        # Create directory structure
+        engine_dir = os.path.join(temp_dir, 'Engine')
+        content_dir = os.path.join(engine_dir, 'Content')
+        fonts_dir = os.path.join(content_dir, 'Fonts')
+        os.makedirs(fonts_dir, exist_ok=True)
+        
+        # 1. Rename uploaded TTF file to normal.ttf
+        normal_ttf_path = os.path.join(fonts_dir, 'normal.ttf')
+        shutil.copy(font_file_path, normal_ttf_path)
+        
+        # 2. Copy title.ttf and art.ttf from assets directory
+        title_src = os.path.join(assets_dir, 'title.ttf')
+        art_src = os.path.join(assets_dir, 'art.ttf')
+        
+        title_dst = os.path.join(fonts_dir, 'title.ttf')
+        art_dst = os.path.join(fonts_dir, 'art.ttf')
+        
+        # Copy if files exist in assets
+        if os.path.exists(title_src):
+            shutil.copy(title_src, title_dst)
+        else:
+            # Fallback: copy normal.ttf as title.ttf if title.ttf not found
+            shutil.copy(normal_ttf_path, title_dst)
+            
+        if os.path.exists(art_src):
+            shutil.copy(art_src, art_dst)
+        else:
+            # Fallback: copy normal.ttf as art.ttf if art.ttf not found
+            shutil.copy(normal_ttf_path, art_dst)
+        
+        # 3. Create Fonts.xml file
+        fonts_xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<Root>
+	<Font><Name>NormalFont</Name><File>normal.ttf</File></Font>
+	<Font><Name>TitleFont</Name><File>title.ttf</File></Font>
+	<Font><Name>ArtFont</Name><File>art.ttf</File></Font>
+</Root>'''
+        
+        fonts_xml_path = os.path.join(fonts_dir, 'Fonts.xml')
+        with open(fonts_xml_path, 'w', encoding='utf-8') as f:
+            f.write(fonts_xml_content)
+        
+        # 4. Create Resources.mpk placeholder
+        resources_path = os.path.join(temp_dir, 'Resources.mpk')
+        with open(resources_path, 'w') as f:
+            f.write('This is a placeholder for Resources.mpk')
+        
+        # 5. Create ZIP file with correct structure
+        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add Resources.mpk
+            zipf.write(resources_path, 'Resources.mpk')
+            
+            # Add font files and Fonts.xml
+            for root, dirs, files in os.walk(engine_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arc_path = os.path.relpath(file_path, temp_dir)
+                    zipf.write(file_path, arc_path)
+        
+        return True
+    except Exception as e:
+        print(f"Error in process_font_logic: {e}")
+        return False
 
 # --- ROUTES CHÍNH ---
 
@@ -247,12 +319,15 @@ def process_font():
         
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = os.path.join(temp_dir, file.filename)
-            output_path = os.path.join(temp_dir, f"Patched_{file.filename}")
+            # Đổi tên file output thành WWM_VietHoa_Full.zip thay vì Patched_{filename}
+            output_path = os.path.join(temp_dir, "WWM_VietHoa_Full.zip")
             file.save(input_path)
             
-            process_font_logic(input_path, output_path)
-            
-            return send_file(output_path, as_attachment=True)
+            if process_font_logic(input_path, output_path):
+                return send_file(output_path, as_attachment=True)
+            else:
+                flash('Có lỗi xảy ra trong quá trình xử lý font.', 'danger')
+                return redirect(url_for('font_tool'))
     
     return redirect(url_for('font_tool'))
 
@@ -635,7 +710,14 @@ def top_donors():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-if __name__ == '__main__':
+# Hàm tạo bảng tự động (chạy được cả trên Gunicorn/Render)
+def create_tables():
     with app.app_context():
         db.create_all()
+        # Kiểm tra xem có cần tạo dữ liệu mẫu hay không ở đây
+
+# Gọi hàm tạo bảng ngay khi import app (để đảm bảo bảng luôn được tạo trên server)
+create_tables()
+
+if __name__ == '__main__':
     app.run(debug=True)

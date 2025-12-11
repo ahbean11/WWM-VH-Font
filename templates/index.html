@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WWM Việt Hóa Download</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .hero { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 40px 0; margin-bottom: 30px; }
+        .card-version { transition: transform 0.2s; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .card-version:hover { transform: translateY(-3px); }
+        .btn-download { width: 100%; font-weight: bold; }
+        .step-box { background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #0d6efd; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="hero text-center">
+        <div class="container">
+            <h1><i class="fa-solid fa-scroll"></i> Tải Bản Việt Hóa - Where Winds Meet</h1>
+            <p class="lead">Tổng hợp các phiên bản việt hóa tốt nhất từ cộng đồng</p>
+        </div>
+    </div>
+
+    <div class="container" style="max-width: 800px;">
+        
+        <div class="alert alert-info shadow-sm">
+            <i class="fa-solid fa-circle-info"></i> 
+            Lưu ý: Các phiên bản được tổng hợp từ nhiều nguồn. Hãy chọn bản phù hợp nhất với bạn.
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fa-solid fa-gamepad"></i> 1. Chọn phiên bản game của bạn</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Nền tảng:</label>
+                    <select id="platformSelect" class="form-select form-select-lg" onchange="filterVersions()">
+                        <option value="Launcher">Client NPH (Launcher)</option>
+                        <option value="Steam">Steam</option>
+                        <option value="Epic">Epic Games</option>
+                    </select>
+                </div>
+
+                <div id="launcherOptions" class="mb-3">
+                    <label class="form-label fw-bold">Loại Client:</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="clientType" id="typeStandard" value="Standard" checked onchange="filterVersions()">
+                            <label class="form-check-label" for="typeStandard">Phiên bản Standard (Tiêu chuẩn)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="clientType" id="typeLite" value="Lite" onchange="filterVersions()">
+                            <label class="form-check-label" for="typeLite">Phiên bản Lite (Nhẹ)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-5">
+            <h4 class="mb-3 border-bottom pb-2"><i class="fa-solid fa-download"></i> 2. Danh sách tải về</h4>
+            
+            <div id="versionList">
+                {% for item in versions %}
+                <div class="card card-version item-row" 
+                     data-platform="{{ item.platform|trim }}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="card-title text-primary"><i class="fa-solid fa-box-open"></i> {{ item.version_name }}</h5>
+                                {% if item.note %}
+                                    <p class="card-text text-muted small"><i class="fa-regular fa-lightbulb"></i> {{ item.note }}</p>
+                                {% else %}
+                                    <p class="card-text text-muted small">Chưa có ghi chú.</p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                {% if item.link.lower().startswith('http') %}
+                                    <a href="{{ item.link }}" target="_blank" class="btn btn-primary btn-download shadow-sm">
+                                        <i class="fa-solid fa-cloud-arrow-down"></i> TẢI VỀ MÁY
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-secondary btn-download disabled">
+                                        <i class="fa-solid fa-ban"></i> {{ item.link or 'Đang cập nhật' }}
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div id="noDataAlert" class="alert alert-warning text-center hidden">
+                Hiện chưa có link tải nào cho phiên bản này. Admin sẽ cập nhật sớm!
+            </div>
+        </div>
+
+        <div class="mb-5">
+            <h4 class="mb-3 border-bottom pb-2"><i class="fa-solid fa-book"></i> 3. Hướng dẫn cài đặt</h4>
+            
+            <div class="step-box">
+                <h5>Bước 1: Chọn đúng phiên bản</h5>
+                <p class="mb-0 text-muted">Chọn đúng link tải ở Mục 2 tương ứng với Standard, Lite, Steam hay Epic.</p>
+            </div>
+
+            <div class="step-box">
+                <h5>Bước 2: Giải nén file</h5>
+                <p class="mb-0 text-muted">Dùng WinRAR giải nén file ZIP. Bạn sẽ thấy thư mục (Ví dụ: <code>Client_wwm_standard</code>).</p>
+            </div>
+
+            <div class="step-box">
+                <h5>Bước 3: Tìm thư mục dữ liệu</h5>
+                <p class="mb-0 text-muted">Mở thư mục vừa giải nén, tìm thư mục con tên là <code>wwm_standard</code> (hoặc <code>wwm_lite</code>).</p>
+            </div>
+
+            <div class="step-box" style="border-left-color: #dc3545;">
+                <h5 class="text-danger">Bước 4: Cài đặt vào Game (Quan Trọng)</h5>
+                <p class="mb-0 text-muted">Copy thư mục <code>wwm_standard</code> và Paste đè vào thư mục cài đặt game gốc.</p>
+                <p class="fw-bold mt-2 text-dark"><i class="fa-solid fa-triangle-exclamation"></i> Bắt buộc chọn "Replace the files" (Ghi đè) khi được hỏi.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="text-center py-4 text-muted bg-white border-top mt-5">
+        <small>Admin liên tục cập nhật link mới. F5 để làm mới danh sách.</small>
+    </footer>
+
+    <script>
+        function filterVersions() {
+            const platform = document.getElementById('platformSelect').value;
+            let targetKey = "";
+
+            // Xử lý Logic Platform Key khớp với Google Sheet
+            if (platform === "Launcher") {
+                document.getElementById('launcherOptions').classList.remove('hidden');
+                // Lấy giá trị radio button
+                const clientType = document.querySelector('input[name="clientType"]:checked').value;
+                targetKey = clientType; // "Standard" hoặc "Lite"
+            } else {
+                document.getElementById('launcherOptions').classList.add('hidden');
+                targetKey = platform; // "Steam" hoặc "Epic"
+            }
+
+            // Lọc danh sách
+            const items = document.querySelectorAll('.item-row');
+            let hasItem = false;
+
+            items.forEach(item => {
+                const itemPlatform = item.getAttribute('data-platform');
+                // So sánh (Case insensitive)
+                if (itemPlatform.toLowerCase() === targetKey.toLowerCase()) {
+                    item.classList.remove('hidden');
+                    hasItem = true;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+
+            // Hiển thị thông báo nếu không có dữ liệu
+            const alertBox = document.getElementById('noDataAlert');
+            if (!hasItem) {
+                alertBox.classList.remove('hidden');
+            } else {
+                alertBox.classList.add('hidden');
+            }
+        }
+
+        // Chạy lọc lần đầu khi load trang
+        window.onload = filterVersions;
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

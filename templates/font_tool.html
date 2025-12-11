@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ tạo Font - WWM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-light">
+    
+    <div class="container mt-5" style="max-width: 800px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-primary"><i class="fa-solid fa-pen-nib"></i> Công cụ chỉnh sửa Font</h2>
+            <a href="/" class="btn btn-outline-secondary">Quay lại trang chủ</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow">
+            <div class="card-header bg-white">
+                <ul class="nav nav-tabs card-header-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="member-tab" data-bs-toggle="tab" data-bs-target="#member" type="button">🚀 Dành cho Thành viên (Rẻ hơn)</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="guest-tab" data-bs-toggle="tab" data-bs-target="#guest" type="button">⚡ Khách vãng lai (Nhanh)</button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body p-4">
+                <div class="tab-content" id="myTabContent">
+                    
+                    <div class="tab-pane fade show active" id="member">
+                        {% if current_user.is_authenticated %}
+                            <div class="alert alert-info">
+                                <strong>Xin chào, {{ current_user.username }}!</strong><br>
+                                💰 Số dư: <strong>{{ "{:,}".format(current_user.balance) }}đ</strong><br>
+                                🎁 Lượt miễn phí: <strong>{{ current_user.free_trials }}</strong>
+                            </div>
+                            
+                            <form action="/process-font" method="POST" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <label class="form-label">Upload Font (.ttf)</label>
+                                    <input type="file" class="form-control" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        {% if current_user.free_trials > 0 %}
+                                            Tạo Font (Miễn phí)
+                                        {% else %}
+                                            Tạo Font (Trừ 5.000đ)
+                                        {% endif %}
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="mt-3 text-center">
+                                <a href="/profile" class="text-decoration-none">Nạp thêm tiền & Lịch sử</a>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <h4>Đăng nhập để hưởng giá ưu đãi (5k/lượt)</h4>
+                                <p class="text-muted">Thành viên mới được tặng 2 lượt dùng thử!</p>
+                                <a href="/login" class="btn btn-primary me-2">Đăng nhập</a>
+                                <a href="/register" class="btn btn-outline-primary">Đăng ký</a>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="tab-pane fade" id="guest">
+                        <div class="row">
+                            <div class="col-md-6 text-center border-end">
+                                <h5>Bước 1: Quét mã QR</h5>
+                                <p class="text-danger fw-bold fs-4">10.000đ / lần</p>
+                                <img src="https://img.vietqr.io/image/VCB-999999999-compact2.jpg?amount=10000&addInfo=FONT WWM&accountName=NGUYEN VAN A" class="img-fluid mb-2" style="max-width: 200px;">
+                                <p class="small text-muted">Nội dung: FONT WWM</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Bước 2: Upload & Xác nhận</h5>
+                                <form action="/process-font" method="POST" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <label class="form-label">Upload Font (.ttf)</label>
+                                        <input type="file" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nhập mã giao dịch (Trong tin nhắn ngân hàng)</label>
+                                        <input type="text" name="payment_code" class="form-control" placeholder="Ví dụ: 123456" required>
+                                        <div class="form-text">Nhập DEMO10K để test thử</div>
+                                    </div>
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-success">Xác nhận & Tạo Font</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
+from authlib.integrations.flask_client import OAuth
 
 # Load biến môi trường
 load_dotenv()
@@ -23,6 +24,18 @@ app = Flask(__name__)
 
 # --- CẤU HÌNH BẢO MẬT & DATABASE ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key_khong_an_toan_123')
+
+# Google OAuth Configuration
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 # Xử lý Database URL từ Render
 database_url = os.environ.get('DATABASE_URL')
@@ -50,7 +63,9 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(20), unique=True, nullable=False)
     password = db.Column(db.String(60), nullable=False)
     balance = db.Column(db.Integer, default=0)
-    free_trials = db.Column(db.Integer, default=2)
+    free_trials = db.Column(db.Integer, default=1)
+    is_donor = db.Column(db.Boolean, default=False)
+    email = db.Column(db.String(120), unique=True, nullable=True)  # Thêm email field
     transactions = db.relationship('Transaction', backref='author', lazy=True)
 
 class Transaction(db.Model):
@@ -66,7 +81,7 @@ class Transaction(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- CẤU HÌNH SHEET ---
+# --- Cấu HÌNH SHEET ---
 SHEET_URL = os.environ.get('SHEET_URL')
 
 def get_data():
@@ -83,7 +98,12 @@ def get_data():
 # Bạn cần paste code SteamPatcher và LauncherPatcher thật vào đây
 # Ở đây mình viết hàm giả lập để code chạy được demo
 def process_font_logic(font_file_path, output_path):
-    # Giả lập xử lý file: Copy file gốc sang file đích
+    """
+    Placeholder function for font processing.
+    Will be implemented later as per requirements.
+    """
+    # TODO: Implement actual font patching logic here
+    # For now, just copy the file as a placeholder
     shutil.copy(font_file_path, output_path)
     return True
 
@@ -95,34 +115,55 @@ def home():
     return render_template('index.html', versions=versions)
 
 # --- AUTHENTICATION ---
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated: return redirect(url_for('font_tool'))
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        if User.query.filter_by(username=username).first():
-            flash('Tên đăng nhập đã tồn tại.', 'danger')
-            return redirect(url_for('register'))
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        user = User(username=username, password=hashed_password)
-        db.session.add(user)
-        db.session.commit()
-        flash('Tạo tài khoản thành công! Tặng 2 lượt dùng thử.', 'success')
-        return redirect(url_for('login'))
-    return render_template('register.html')
+# Removed register route as requested - only Google login is allowed now
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('font_tool'))
-    if request.method == 'POST':
-        user = User.query.filter_by(username=request.form.get('username')).first()
-        if user and bcrypt.check_password_hash(user.password, request.form.get('password')):
+    # Removed username/password login as requested - only Google login is allowed now
+    return render_template('login.html')
+
+# Google Login Routes (kept as is)
+@app.route('/login/google')
+def google_login():
+    redirect_uri = url_for('google_callback', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/login/google/callback')
+def google_callback():
+    try:
+        token = google.authorize_access_token()
+        user_info = token.get('userinfo')
+        
+        if user_info:
+            # Check if user exists, create if not
+            user = User.query.filter_by(username=user_info['email']).first()
+            if not user:
+                # Create new user with Google email as username
+                # Set initial free_trials to 1 for regular users
+                user = User(
+                    username=user_info['email'], 
+                    email=user_info['email'],  # Lưu email
+                    password=bcrypt.generate_password_hash(str(uuid.uuid4())).decode('utf-8'),  # Random password
+                    free_trials=1  # Regular users get 1 free trial
+                )
+                db.session.add(user)
+                db.session.commit()
+                flash('Tài khoản được tạo thành công bằng Google! Bạn có 1 lần dùng thử miễn phí.', 'success')
+            else:
+                # Cập nhật email nếu chưa có
+                if not user.email:
+                    user.email = user_info['email']
+                    db.session.commit()
+            
             login_user(user)
             return redirect(url_for('font_tool'))
         else:
-            flash('Sai thông tin đăng nhập.', 'danger')
-    return render_template('login.html')
+            flash('Không thể xác thực với Google.', 'danger')
+    except Exception as e:
+        flash('Lỗi khi đăng nhập bằng Google: ' + str(e), 'danger')
+    
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
@@ -144,6 +185,11 @@ def font_tool():
 # --- XỬ LÝ THANH TOÁN & TẠO FONT (QUAN TRỌNG) ---
 @app.route('/process-font', methods=['POST'])
 def process_font():
+    # Require authentication - no guest access anymore
+    if not current_user.is_authenticated:
+        flash('Vui lòng đăng nhập để sử dụng tính năng này.', 'danger')
+        return redirect(url_for('login'))
+    
     # Kiểm tra file upload
     if 'font_file' not in request.files:
         flash('Vui lòng chọn file font (.ttf)', 'danger')
@@ -154,68 +200,33 @@ def process_font():
         flash('Chưa chọn file', 'danger')
         return redirect(url_for('font_tool'))
 
-    # --- TRƯỜNG HỢP 1: KHÁCH VÃNG LAI (10K) ---
-    if not current_user.is_authenticated:
-        guest_id = session.get('guest_session_id')
-        payment_code = f"WWM {guest_id}"
-        
-        # Tìm xem có giao dịch nào thành công với mã này chưa?
-        # Điều kiện: Status = success VÀ Amount >= 10000 VÀ chưa được dùng (Optional logic)
-        transaction = Transaction.query.filter_by(
-            description=payment_code, 
-            status='success'
-        ).order_by(Transaction.date_created.desc()).first()
-
-        # Logic check mã DEMO để test (Xóa khi chạy thật)
-        is_demo = request.form.get('payment_code_input') == "DEMO10K"
-
-        if transaction or is_demo:
-            # OK -> Xử lý file
-            with tempfile.TemporaryDirectory() as temp_dir:
-                input_path = os.path.join(temp_dir, file.filename)
-                output_path = os.path.join(temp_dir, f"Patched_{file.filename}")
-                file.save(input_path)
-                
-                # Gọi hàm xử lý font
-                process_font_logic(input_path, output_path)
-                
-                # Nếu là giao dịch thật, có thể update status để không dùng lại mã này (tuỳ logic)
-                # transaction.status = 'used'
-                # db.session.commit()
-
-                return send_file(output_path, as_attachment=True)
-        else:
-            flash('Chưa nhận được thanh toán. Vui lòng quét mã và đợi 1 phút.', 'warning')
-            return redirect(url_for('font_tool'))
-
-    # --- TRƯỜNG HỢP 2: THÀNH VIÊN (5K) ---
+    # --- CHỈ DÀNH CHO THÀNH VIÊN ĐÃ ĐĂNG NHẬP ---
+    can_process = False
+    
+    # VIP donors can use unlimited times
+    if current_user.is_donor:
+        can_process = True
+        flash('Xin chào Nhà tài trợ VIP! Font sẽ được xử lý ngay.', 'success')
+    # Regular members get 1 free trial
+    elif current_user.free_trials > 0:
+        current_user.free_trials -= 1
+        can_process = True
+        flash(f'Đã dùng 1 lượt miễn phí. Còn lại: {current_user.free_trials}', 'success')
     else:
-        cost = 5000
-        can_process = False
-        
-        if current_user.free_trials > 0:
-            current_user.free_trials -= 1
-            can_process = True
-            flash(f'Đã dùng 1 lượt miễn phí. Còn lại: {current_user.free_trials}', 'success')
-        elif current_user.balance >= cost:
-            current_user.balance -= cost
-            can_process = True
-            flash(f'Đã trừ {cost}đ. Số dư mới: {current_user.balance}đ', 'success')
-        else:
-            flash('Số dư không đủ. Vui lòng nạp thêm.', 'danger')
-            return redirect(url_for('font_tool'))
+        flash('Bạn đã hết lượt dùng thử. Hãy trở thành Nhà tài trợ VIP để sử dụng không giới hạn!', 'warning')
+        return redirect(url_for('font_tool'))
 
-        if can_process:
-            db.session.commit() # Lưu thay đổi số dư
+    if can_process:
+        db.session.commit() # Lưu thay đổi số dư
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = os.path.join(temp_dir, file.filename)
+            output_path = os.path.join(temp_dir, f"Patched_{file.filename}")
+            file.save(input_path)
             
-            with tempfile.TemporaryDirectory() as temp_dir:
-                input_path = os.path.join(temp_dir, file.filename)
-                output_path = os.path.join(temp_dir, f"Patched_{file.filename}")
-                file.save(input_path)
-                
-                process_font_logic(input_path, output_path)
-                
-                return send_file(output_path, as_attachment=True)
+            process_font_logic(input_path, output_path)
+            
+            return send_file(output_path, as_attachment=True)
     
     return redirect(url_for('font_tool'))
 
@@ -228,54 +239,77 @@ def profile():
                            bank_name="VietinBank",
                            transfer_content=f"WWM {current_user.id}")
 
-# --- NẠP TIỀN CHO THÀNH VIÊN ---
-@app.route('/deposit')
-@login_required
-def deposit():
-    return render_template('deposit.html', 
-                           bank_acc="100872675193", 
-                           bank_name="VietinBank",
-                           transfer_content=f"WWM {current_user.id}")
-
 # --- WEBHOOK SEPAY (XỬ LÝ TỰ ĐỘNG) ---
 @app.route('/api/sepay-webhook', methods=['POST'])
 def sepay_webhook():
     try:
         data = request.json
-        # Dữ liệu mẫu SePay: {'gateway': 'MBBank', 'transferAmount': 10000, 'content': 'WWM 5 ...'}
+        # Dữ liệu mẫu SePay: {'gateway': 'MBBank', 'transferAmount': 10000, 'content': 'WWM 5 abc123...', 'customerEmail': 'user@example.com'}
         
         content = data.get('content', '')
         amount = data.get('transferAmount', 0)
+        customer_email = data.get('customerEmail', '')  # Lấy email từ SePay
         
         if not content: return jsonify({'success': False}), 400
 
-        # LOGIC 1: NẠP TIỀN THÀNH VIÊN (WWM 123)
-        user_match = re.search(r'WWM\s+(\d+)', content, re.IGNORECASE)
+        import hashlib
+        
+        # LOGIC 1: Xác thực donate từ user đã tồn tại
+        # Format: WWM <user_id> <email_hash>
+        user_match = re.search(r'WWM\s+(\d+)\s+([a-f0-9]{32})', content, re.IGNORECASE)
         if user_match:
             user_id = int(user_match.group(1))
+            email_hash = user_match.group(2)
             user = User.query.get(user_id)
-            if user:
-                user.balance += int(amount)
-                new_trans = Transaction(amount=amount, description=content, status='success', user_id=user.id)
+            if user and user.email:
+                # Kiểm tra hash email
+                expected_hash = hashlib.md5(user.email.lower().encode()).hexdigest()
+                if expected_hash == email_hash:
+                    user.balance += int(amount)
+                    # Set donor status nếu donate từ 10.000đ trở lên
+                    if int(amount) >= 10000:
+                        user.is_donor = True
+                    new_trans = Transaction(amount=amount, description=content, status='success', user_id=user.id)
+                    db.session.add(new_trans)
+                    db.session.commit()
+                    return jsonify({'success': True, 'msg': 'User donation processed'}), 200
+
+        # LOGIC 2: Xác thực donate từ user mới
+        # Format: WWM NEW <email_hash>
+        new_user_match = re.search(r'WWM\s+NEW\s+([a-f0-9]{32})', content, re.IGNORECASE)
+        if new_user_match:
+            email_hash = new_user_match.group(1)
+            # Tìm user theo email hash (nếu đã có trong hệ thống)
+            all_users = User.query.all()
+            matched_user = None
+            for user in all_users:
+                if user.email:
+                    user_hash = hashlib.md5(user.email.lower().encode()).hexdigest()
+                    if user_hash == email_hash:
+                        matched_user = user
+                        break
+            
+            if matched_user:
+                matched_user.balance += int(amount)
+                # Set donor status nếu donate từ 10.000đ trở lên
+                if int(amount) >= 10000:
+                    matched_user.is_donor = True
+                new_trans = Transaction(amount=amount, description=content, status='success', user_id=matched_user.id)
                 db.session.add(new_trans)
                 db.session.commit()
-                return jsonify({'success': True, 'msg': 'User topup'}), 200
+                return jsonify({'success': True, 'msg': 'Existing user new donation processed'}), 200
+            else:
+                # Lưu transaction cho user mới, sẽ xử lý khi họ đăng nhập
+                new_trans = Transaction(amount=amount, description=content, status='pending', guest_id=email_hash)
+                db.session.add(new_trans)
+                db.session.commit()
+                return jsonify({'success': True, 'msg': 'New user donation recorded, pending registration'}), 200
 
-        # LOGIC 2: KHÁCH VÃNG LAI (WWM A1B2C3D4)
-        guest_match = re.search(r'WWM\s+([A-Z0-9]{8})', content, re.IGNORECASE)
-        if guest_match:
-            guest_id = guest_match.group(1)
-            # Lưu giao dịch vào DB để khách check
-            new_trans = Transaction(amount=amount, description=f"WWM {guest_id}", status='success', guest_id=guest_id)
-            db.session.add(new_trans)
-            db.session.commit()
-            return jsonify({'success': True, 'msg': 'Guest payment recorded'}), 200
-
-        return jsonify({'success': True, 'msg': 'No match'}), 200
+        return jsonify({'success': True, 'msg': 'No matching user found'}), 200
 
     except Exception as e:
         print(f"Webhook Error: {e}")
-        return jsonify({'success': False}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # --- API CHECK THANH TOÁN (CHO KHÁCH VÃNG LAI) ---
 @app.route('/api/check-guest-payment')

@@ -13,6 +13,8 @@
         .auth-body { padding: 40px 30px; background: white; }
         .form-control { padding: 12px; border-radius: 8px; }
         .btn-login { padding: 12px; font-weight: bold; font-size: 1.1rem; }
+        .btn-google { background-color: #DB4437; border-color: #DB4437; color: white; }
+        .btn-google:hover { background-color: #c23327; border-color: #c23327; }
     </style>
 </head>
 <body>
@@ -34,30 +36,21 @@
                 {% endif %}
             {% endwith %}
 
-            <form action="/login" method="POST">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Tên đăng nhập</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="fa-solid fa-user"></i></span>
-                        <input type="text" name="username" class="form-control" placeholder="Nhập username..." required autofocus>
-                    </div>
+            <div class="text-center">
+                <p class="text-muted mb-4">Đăng nhập bằng tài khoản Google để tiếp tục</p>
+                <a href="/login/google" class="btn btn-google w-100 py-3">
+                    <i class="fab fa-google me-2 fa-lg"></i>Đăng nhập bằng Google
+                </a>
+                
+                <div class="mt-4">
+                    <p class="text-muted small">
+                        <i class="fas fa-info-circle"></i> Chỉ chấp nhận đăng nhập bằng Google<br>
+                        Đăng ký tự động khi đăng nhập lần đầu
+                    </p>
                 </div>
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Mật khẩu</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="fa-solid fa-lock"></i></span>
-                        <input type="password" name="password" class="form-control" placeholder="Nhập mật khẩu..." required>
-                    </div>
-                </div>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-primary btn-login">Đăng Nhập Ngay</button>
-                </div>
-            </form>
+            </div>
 
             <div class="text-center mt-4">
-                <p class="text-muted mb-2">Chưa có tài khoản?</p>
-                <a href="/register" class="text-decoration-none fw-bold">Đăng ký thành viên mới</a>
-                <hr>
                 <a href="/" class="text-secondary small"><i class="fa-solid fa-arrow-left"></i> Quay lại trang chủ</a>
             </div>
         </div>

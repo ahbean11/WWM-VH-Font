@@ -10,6 +10,7 @@
         .qr-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .amount-btn { min-width: 100px; margin-bottom: 10px; }
         .step-circle { width: 30px; height: 30px; background: #0d6efd; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; }
+        .vip-badge { background: linear-gradient(135deg, #FFD700, #FFA500); color: black; }
     </style>
 </head>
 <body class="bg-light">
@@ -32,6 +33,11 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="text" class="form-control" value="{{ current_user.email or 'Chưa có email' }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
                         <label class="form-label">Số dư tài khoản</label>
                         <input type="text" class="form-control" value="{{ "{:,}".format(current_user.balance) }}đ" readonly>
                     </div>
@@ -39,6 +45,21 @@
                     <div class="mb-3">
                         <label class="form-label">Lượt dùng thử còn lại</label>
                         <input type="text" class="form-control" value="{{ current_user.free_trials }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Trạng thái tài khoản</label>
+                        {% if current_user.is_donor %}
+                        <div class="alert alert-success py-2">
+                            <i class="fas fa-crown"></i> <strong class="vip-badge px-2 py-1 rounded">NHÀ TÀI TRỢ VIP</strong><br>
+                            <small class="text-muted">Cảm ơn bạn đã hỗ trợ dự án! Bạn có thể sử dụng công cụ không giới hạn lần.</small>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info py-2">
+                            <i class="fas fa-user"></i> <strong>THÀNH VIÊN THƯỜNG</strong><br>
+                            <small class="text-muted">Bạn có {{ current_user.free_trials }} lần dùng thử miễn phí. Donate từ 10.000đ để trở thành Nhà tài trợ VIP và sử dụng không giới hạn.</small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -48,17 +69,36 @@
 
         <div class="col-md-6 text-center">
             <div class="qr-box">
-                <h5 class="mb-3"><span class="step-circle">2</span>Nạp tiền vào tài khoản</h5>
+                <h5 class="mb-3"><span class="step-circle">2</span>Donate để trở thành VIP</h5>
+                
+                <div class="alert alert-warning">
+                    <strong><i class="fas fa-info-circle"></i> Hướng dẫn donate:</strong>
+                    <ol class="text-start small">
+                        <li>Chọn số tiền donate (tối thiểu 10.000đ để trở thành VIP)</li>
+                        <li>Quét mã QR bên dưới</li>
+                        <li>Thanh toán qua ngân hàng</li>
+                        <li>Hệ thống sẽ tự động cập nhật trạng thái VIP cho bạn</li>
+                    </ol>
+                </div>
                 
                 <div id="qrContainer" class="mb-3 position-relative">
-                    <img id="sepayQR" src="https://img.vietqr.io/image/VCB-{{ bank_acc }}-compact2.jpg?amount=10000&addInfo=WWM {{ current_user.id }}&accountName=WWM" class="img-fluid border" style="max-width: 300px; min-height: 300px;">
+                    <img id="sepayQR" src="" class="img-fluid border" style="max-width: 300px; min-height: 300px;">
                     <div id="qrLoading" class="position-absolute top-50 start-50 translate-middle d-none">
                         <div class="spinner-border text-primary" role="status"></div>
                     </div>
                 </div>
 
                 <h4 class="text-primary fw-bold" id="displayAmount">10.000đ</h4>
-                <p class="text-muted small">Nội dung CK: <strong class="text-danger bg-warning-subtle px-2 py-1 rounded">WWM {{ current_user.id }}</strong></p>
+                <p class="text-muted small">Nội dung CK: <strong class="text-danger bg-warning-subtle px-2 py-1 rounded" id="transferContent">WWM {{ current_user.id }} ...</strong></p>
+                <p class="text-muted small">Donate từ 10.000đ để trở thành Nhà tài trợ VIP</p>
+                
+                <div class="mb-3">
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(10000)">10k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(20000)">20k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(50000)">50k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(100000)">100k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(200000)">200k</button>
+                </div>
                 
                 <hr>
                 <div id="statusMessage">
@@ -106,6 +146,30 @@
     // Cấu hình từ Server
     const BANK_ACC = "{{ bank_acc }}";
     const USER_ID = "{{ current_user.id }}";
+    const USER_EMAIL = "{{ current_user.email }}";
+    
+    // Hàm tạo hash MD5 đơn giản (chỉ để hiển thị, hash thực tế được tạo ở server)
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString(16);
+    }
+    
+    // Hàm tạo nội dung chuyển khoản với hash email
+    function generateTransferContent(amount) {
+        if (USER_EMAIL) {
+            // Trong thực tế, hash được tạo ở server để bảo mật
+            // Ở đây chỉ là ví dụ hiển thị
+            const emailHash = simpleHash(USER_EMAIL.toLowerCase());
+            return `WWM ${USER_ID} ${emailHash}`;
+        } else {
+            return `WWM ${USER_ID}`;
+        }
+    }
     
     // Hàm cập nhật QR khi chọn số tiền khác
     function updateQR(amount) {
@@ -114,8 +178,12 @@
         // Hiển thị số tiền
         document.getElementById('displayAmount').innerText = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
         
+        // Tạo nội dung chuyển khoản
+        const transferContent = generateTransferContent(amount);
+        document.getElementById('transferContent').innerText = transferContent;
+        
         // Tạo link QR mới
-        const qrURL = `https://img.vietqr.io/image/VCB-${BANK_ACC}-compact2.jpg?amount=${amount}&addInfo=WWM ${USER_ID}&accountName=WWM`;
+        const qrURL = `https://img.vietqr.io/image/VCB-${BANK_ACC}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=WWM`;
         
         // Cập nhật ảnh
         document.getElementById('sepayQR').src = qrURL;

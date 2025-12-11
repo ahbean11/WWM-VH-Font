@@ -25,83 +25,64 @@
 
         <div class="card shadow">
             <div class="card-header bg-white">
-                <ul class="nav nav-tabs card-header-tabs" id="myTab" role="tablist">
-                    <li class="nav-item">
-                        <button class="nav-link active" id="member-tab" data-bs-toggle="tab" data-bs-target="#member" type="button">🚀 Dành cho Thành viên (Rẻ hơn)</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" id="guest-tab" data-bs-toggle="tab" data-bs-target="#guest" type="button">⚡ Khách vãng lai (Nhanh)</button>
-                    </li>
-                </ul>
+                <h5 class="mb-0"><i class="fas fa-user-lock"></i> Chức năng chỉ dành cho thành viên đã đăng nhập</h5>
             </div>
             <div class="card-body p-4">
-                <div class="tab-content" id="myTabContent">
-                    
-                    <div class="tab-pane fade show active" id="member">
-                        {% if current_user.is_authenticated %}
-                            <div class="alert alert-info">
-                                <strong>Xin chào, {{ current_user.username }}!</strong><br>
-                                💰 Số dư: <strong>{{ "{:,}".format(current_user.balance) }}đ</strong><br>
-                                🎁 Lượt miễn phí: <strong>{{ current_user.free_trials }}</strong>
-                            </div>
-                            
-                            <form action="/process-font" method="POST" enctype="multipart/form-data">
-                                <div class="mb-3">
-                                    <label class="form-label">Upload Font (.ttf)</label>
-                                    <input type="file" name="font_file" class="form-control" required>
-                                </div>
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary btn-lg">
-                                        {% if current_user.free_trials > 0 %}
-                                            Tạo Font (Miễn phí)
-                                        {% else %}
-                                            Tạo Font (Trừ 5.000đ)
-                                        {% endif %}
-                                    </button>
-                                </div>
-                            </form>
-                            <div class="mt-3 text-center">
-                                <a href="/profile" class="text-decoration-none">Nạp thêm tiền & Lịch sử</a>
-                            </div>
+                {% if current_user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <strong>Xin chào, {{ current_user.username }}!</strong><br>
+                        {% if current_user.is_donor %}
+                        <span class="badge bg-success"><i class="fas fa-crown"></i> NHÀ TÀI TRỢ VIP</span><br>
+                        <small>Bạn có thể sử dụng công cụ không giới hạn lần.</small>
                         {% else %}
-                            <div class="text-center py-4">
-                                <h4>Đăng nhập để hưởng giá ưu đãi (5k/lượt)</h4>
-                                <p class="text-muted">Thành viên mới được tặng 2 lượt dùng thử!</p>
-                                <a href="/login" class="btn btn-primary me-2">Đăng nhập</a>
-                                <a href="/register" class="btn btn-outline-primary">Đăng ký</a>
-                            </div>
+                        <span class="badge bg-primary"><i class="fas fa-user"></i> THÀNH VIÊN THƯỜNG</span><br>
+                        <small>Lượt miễn phí còn lại: <strong>{{ current_user.free_trials }}</strong></small>
                         {% endif %}
                     </div>
-
-                    <div class="tab-pane fade" id="guest">
-                        <div class="row">
-                            <div class="col-md-6 text-center border-end">
-                                <h5>Bước 1: Quét mã QR</h5>
-                                <p class="text-danger fw-bold fs-4">10.000đ / lần</p>
-                                <img src="https://img.vietqr.io/image/VCB-999999999-compact2.jpg?amount=10000&addInfo=FONT WWM&accountName=NGUYEN VAN A" class="img-fluid mb-2" style="max-width: 200px;">
-                                <p class="small text-muted">Nội dung: FONT WWM</p>
-                            </div>
-                            <div class="col-md-6">
-                                <h5>Bước 2: Upload & Xác nhận</h5>
-                                <form action="/process-font" method="POST" enctype="multipart/form-data">
-                                    <div class="mb-3">
-                                        <label class="form-label">Upload Font (.ttf)</label>
-                                        <input type="file" name="font_file" class="form-control" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Nhập mã giao dịch (Trong tin nhắn ngân hàng)</label>
-                                        <input type="text" name="payment_code" class="form-control" placeholder="Ví dụ: 123456" required>
-                                        <div class="form-text">Nhập DEMO10K để test thử</div>
-                                    </div>
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-success">Xác nhận & Tạo Font</button>
-                                    </div>
-                                </form>
-                            </div>
+                    
+                    {% if current_user.is_donor or current_user.free_trials > 0 %}
+                    <form action="/process-font" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Upload Font (.ttf)</label>
+                            <input type="file" name="font_file" class="form-control" required>
                         </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                {% if current_user.is_donor %}
+                                    <i class="fas fa-crown"></i> Tạo Font (Dành cho VIP)
+                                {% else %}
+                                    {% if current_user.free_trials > 0 %}
+                                        Tạo Font (Miễn phí - Còn {{ current_user.free_trials }} lần)
+                                    {% endif %}
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Hết lượt dùng thử</h5>
+                        <p>Bạn đã hết lượt dùng thử miễn phí. Để tiếp tục sử dụng công cụ:</p>
+                        <ol>
+                            <li>Trở thành Nhà tài trợ VIP bằng cách nạp 50.000đ hoặc hơn</li>
+                            <li><a href="/profile" class="btn btn-success btn-sm">Nạp tiền ngay</a></li>
+                        </ol>
                     </div>
-
-                </div>
+                    {% endif %}
+                    
+                    <div class="mt-3 text-center">
+                        <a href="/profile" class="text-decoration-none">
+                            <i class="fas fa-wallet"></i> Quản lý tài khoản & Lịch sử nạp tiền
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <h4><i class="fas fa-lock"></i> Chức năng này chỉ dành cho thành viên</h4>
+                        <p class="text-muted">Vui lòng đăng nhập bằng Google để sử dụng công cụ chỉnh sửa Font</p>
+                        <a href="/login/google" class="btn btn-danger">
+                            <i class="fab fa-google"></i> Đăng nhập bằng Google
+                        </a>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>

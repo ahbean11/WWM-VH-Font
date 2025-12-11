@@ -5,13 +5,33 @@ from flask_bcrypt import Bcrypt
 import pandas as pd
 import os
 
+import os
+from dotenv import load_dotenv  # Import thư viện này
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_bcrypt import Bcrypt
+import pandas as pd
+
+# Load biến môi trường từ file .env (chỉ dùng khi chạy Local)
+load_dotenv()
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'khoa_bi_mat_cua_ban_123456' # Đổi cái này nhé
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db' # Database file
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key_mac_dinh_123')
+db_uri = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
+if db_uri and db_uri.startswith("postgres://"):
+    db_uri = db_uri.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+SHEET_URL = os.environ.get('SHEET_URL')
+if not SHEET_URL:
+    print("⚠️ CẢNH BÁO: Chưa cấu hình biến môi trường SHEET_URL")
+
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
 
 # --- DATABASE MODELS ---
 class User(db.Model, UserMixin):

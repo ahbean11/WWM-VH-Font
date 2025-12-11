@@ -32,9 +32,55 @@
         /* Stats */
         .stat-box { text-align: center; padding: 20px; }
         .stat-number { font-size: 2.5rem; font-weight: bold; color: #d63384; }
+        
+        /* Top Donors Banner */
+        .marquee {
+            overflow: hidden;
+            box-sizing: border-box;
+            position: relative;
+            background: linear-gradient(to right, #ffd700, #ffa500, #ffd700);
+            padding: 10px 0;
+            white-space: nowrap;
+        }
+        
+        .marquee-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 15s linear infinite;
+        }
+        
+        .marquee-content:hover {
+            animation-play-state: paused;
+        }
+        
+        @keyframes marquee {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+        
+        .donor-highlight {
+            display: inline-block;
+            margin: 0 15px;
+            font-weight: bold;
+            color: #8b0000;
+        }
+        
+        .donor-rank {
+            background: #8b0000;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-right: 5px;
+        }
     </style>
 </head>
 <body>
+    <!-- Top Donors Marquee Banner -->
+    <div id="topDonorsBanner" class="marquee d-none">
+        <div class="marquee-content" id="marqueeContent">
+            <!-- Nội dung sẽ được load bằng JavaScript -->
+        </div>
+    </div>
 
     <div class="hero text-center">
         <div class="container">
@@ -342,21 +388,54 @@
             alertBox.classList.toggle('hidden', hasItem);
         }
         
+        // Copy STK
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert("Đã copy số tài khoản: " + text);
+        }
+        
+        // Load top donors và hiển thị trong banner
+        async function loadTopDonors() {
+            try {
+                const response = await fetch('/api/top-donors');
+                const data = await response.json();
+                
+                if (data.success && data.top_donors.length > 0) {
+                    const marqueeContent = document.getElementById('marqueeContent');
+                    const banner = document.getElementById('topDonorsBanner');
+                    
+                    // Tạo nội dung cho banner
+                    let content = '';
+                    data.top_donors.forEach(donor => {
+                        content += `
+                            <span class="donor-highlight">
+                                <span class="donor-rank">Top ${donor.rank}</span>
+                                ${donor.email} - ${donor.total_donated.toLocaleString()}đ
+                            </span>
+                        `;
+                    });
+                    
+                    // Lặp lại nội dung để tạo hiệu ứng cuộn liên tục
+                    marqueeContent.innerHTML = content + content;
+                    banner.classList.remove('d-none');
+                }
+            } catch (error) {
+                console.error('Lỗi khi load top donors:', error);
+            }
+        }
+        
         // Modal Donate
         function showDonateInfo(price) {
             document.getElementById('selectedPackagePrice').innerText = price;
             var myModal = new bootstrap.Modal(document.getElementById('donateModal'));
             myModal.show();
         }
-
-        // Copy STK
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text);
-            alert("Đã copy số tài khoản: " + text);
-        }
-
-        // Chạy lọc lần đầu
-        window.onload = filterVersions;
+        
+        // Chạy lọc lần đầu và load top donors
+        window.onload = function() {
+            filterVersions();
+            loadTopDonors();
+        };
     </script>
 </body>
 </html>

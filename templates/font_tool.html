@@ -114,11 +114,12 @@
                                     <small id="statusDetail" class="text-muted d-block mt-2 text-center">...</small>
                                 </div>
                                 
-                                {% if not current_user.is_donor %}
-                                    <div class="mt-3 text-center">
-                                        <small class="text-muted">Bạn còn <strong>{{ current_user.free_trials }}</strong> lượt miễn phí</small>
-                                    </div>
-                                {% endif %}
+                                <!-- Element để hiển thị số lượt dùng thử còn lại -->
+                                <div id="trialInfo" class="mt-3 text-center">
+                                    {% if not current_user.is_donor %}
+                                        <small class="text-muted">Bạn còn <strong id="trialCount">{{ current_user.free_trials }}</strong> lượt miễn phí</small>
+                                    {% endif %}
+                                </div>
                             {% else %}
                                 <div class="alert alert-warning">
                                     <h5><i class="fas fa-exclamation-triangle"></i> Hết lượt dùng thử</h5>
@@ -207,6 +208,12 @@
                 return;
             }
 
+            // Kiểm tra lượt dùng thử trước khi bắt đầu xử lý
+            const canProceed = await checkTrialBeforeProcessing();
+            if (!canProceed) {
+                return;
+            }
+
             // --- BẮT ĐẦU QUÁ TRÌNH TẢI & NÉN (GIỐNG CŨ) ---
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG UPLOAD & KIỂM TRA...';
@@ -262,6 +269,67 @@
                 showAlert("Lỗi: " + e.message);
                 btn.disabled = false;
                 progressArea.style.display = 'none';
+            }
+        }
+
+        // Hàm kiểm tra lượt dùng thử trước khi xử lý
+        async function checkTrialBeforeProcessing() {
+            try {
+                const response = await fetch('/api/check-trial');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showAlert("Lỗi khi kiểm tra trạng thái dùng thử: " + data.message);
+                    return false;
+                }
+                
+                if (!data.can_use_trial) {
+                    showAlert("Bạn đã hết lượt dùng thử. Hãy trở thành Nhà tài trợ VIP để sử dụng không giới hạn!");
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Lỗi kết nối đến server:', error);
+                showAlert("Không thể kiểm tra trạng thái dùng thử. Vui lòng thử lại sau.");
+                return false;
+            }
+        }
+
+        // Hàm gọi API để trừ lượt dùng thử
+        async function useTrial() {
+            try {
+                const response = await fetch('/api/use-trial', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log(data.message);
+                    // Cập nhật UI để hiển thị số lượt còn lại
+                    const trialCountElement = document.getElementById('trialCount');
+                    if (trialCountElement) {
+                        trialCountElement.textContent = data.remaining_trials;
+                    }
+                    
+                    // Nếu hết lượt dùng thử, hiển thị thông báo và cập nhật giao diện
+                    if (data.remaining_trials <= 0 && !data.is_donor) {
+                        // Reload trang sau 3 giây để cập nhật trạng thái
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    }
+                } else {
+                    console.error('Lỗi khi trừ lượt dùng thử:', data.message);
+                    showAlert("Lỗi: " + data.message);
+                }
+            } catch (error) {
+                console.error('Lỗi kết nối đến server:', error);
+                showAlert("Không thể kết nối đến server để cập nhật lượt dùng thử.");
             }
         }
 

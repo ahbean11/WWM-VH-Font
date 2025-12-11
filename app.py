@@ -275,7 +275,12 @@ def check_guest_payment():
         return jsonify({'paid': True})
     return jsonify({'paid': False})
 
-if __name__ == '__main__':
-    with app.app_context():
+with app.app_context():
+    try:
         db.create_all()
+        print("✅ Đã khởi tạo bảng Database thành công!")
+    except Exception as e:
+        print(f"⚠️ Lỗi tạo bảng (Có thể do đã tồn tại): {e}")
+
+if __name__ == '__main__':
     app.run(debug=True)

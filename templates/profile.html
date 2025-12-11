@@ -226,7 +226,7 @@
                 
                 // TẠO QR VIETQR (Dùng template print để ảnh to rõ)
                 // Cấu trúc: https://img.vietqr.io/image/<BANK>-<ACC>-<TEMPLATE>.png
-                const qrUrl = `https://img.vietqr.io/image/VietinBank-100872675193-print.png?amount=${selectedAmount}&addInfo=${currentOrderCode}&accountName=NGUYEN QUANG DUY`;
+                const qrUrl = `https://qr.sepay.vn/img?acc=100872675193&bank=VietinBank&amount=${selectedAmount}&des=SEVQR ${currentOrderCode}&template=compact`;
                 document.getElementById('orderQR').src = qrUrl;
 
                 startAutoCheck();
@@ -285,4 +285,5 @@
 </script>
 
 </body>
+
 </html>

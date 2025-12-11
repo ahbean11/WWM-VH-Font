@@ -42,7 +42,6 @@
     </style>
 </head>
 <body>
-    <!-- Hero Section -->
     <section class="hero-tool">
         <div class="container text-center">
             <h1 class="display-5 fw-bold"><i class="fa-solid fa-file-zipper"></i> WWM PATCHER TOOL</h1>
@@ -114,7 +113,6 @@
                                     <small id="statusDetail" class="text-muted d-block mt-2 text-center">...</small>
                                 </div>
                                 
-                                <!-- Element để hiển thị số lượt dùng thử còn lại -->
                                 <div id="trialInfo" class="mt-3 text-center">
                                     {% if not current_user.is_donor %}
                                         <small class="text-muted">Bạn còn <strong id="trialCount">{{ current_user.free_trials }}</strong> lượt miễn phí</small>
@@ -196,7 +194,7 @@
 
             // 2. Check Valid Name
             if (!gameFileName.toLowerCase().startsWith("resources.mpk")) {
-                // Cho phép lỏng lẻo một chút hoặc chặn cứng tùy bạn. Ở đây mình cảnh báo nhưng vẫn cho chạy nếu muốn chặn thì return.
+                // Cho phép lỏng lẻo một chút hoặc chặn cứng tùy bạn
                 if(!confirm(`Tên file lạ: "${gameFileName}".\nFile chuẩn thường là "Resources.mpk". Bạn có chắc chắn muốn tiếp tục?`)) {
                     return;
                 }
@@ -214,7 +212,7 @@
                 return;
             }
 
-            // --- BẮT ĐẦU QUÁ TRÌNH TẢI & NÉN (GIỐNG CŨ) ---
+            // --- BẮT ĐẦU QUÁ TRÌNH TẢI & NÉN ---
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG UPLOAD & KIỂM TRA...';
             progressArea.style.display = 'block';
@@ -255,6 +253,10 @@
                 updateProgress(100, "Đang nén file ZIP...");
                 const zipContent = await zip.generateAsync({type: "blob"});
                 saveAs(zipContent, "WWM_VietHoa_Full.zip");
+                
+                // === QUAN TRỌNG: GỌI HÀM TRỪ LƯỢT SAU KHI TẢI XONG ===
+                await useTrial(); 
+                // =======================================================
                 
                 statusTitle.innerText = "✅ THÀNH CÔNG!";
                 statusDetail.innerText = "File đã được tải xuống.";
@@ -316,20 +318,18 @@
                         trialCountElement.textContent = data.remaining_trials;
                     }
                     
-                    // Nếu hết lượt dùng thử, hiển thị thông báo và cập nhật giao diện
+                    // Nếu hết lượt dùng thử (và không phải VIP), reload trang để khóa lại
                     if (data.remaining_trials <= 0 && !data.is_donor) {
-                        // Reload trang sau 3 giây để cập nhật trạng thái
                         setTimeout(() => {
                             location.reload();
-                        }, 3000);
+                        }, 2000);
                     }
                 } else {
                     console.error('Lỗi khi trừ lượt dùng thử:', data.message);
-                    showAlert("Lỗi: " + data.message);
+                    // Không hiện alert lỗi ở đây để tránh làm phiền user nếu họ đã tải được file
                 }
             } catch (error) {
                 console.error('Lỗi kết nối đến server:', error);
-                showAlert("Không thể kết nối đến server để cập nhật lượt dùng thử.");
             }
         }
 

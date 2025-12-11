@@ -75,11 +75,9 @@
     </style>
 </head>
 <body>
-    <!-- Top Donors Marquee Banner -->
     <div id="topDonorsBanner" class="marquee d-none">
         <div class="marquee-content" id="marqueeContent">
-            <!-- Nội dung sẽ được load bằng JavaScript -->
-        </div>
+            </div>
     </div>
 
     <div class="hero text-center">
@@ -139,16 +137,12 @@
                                 <p class="card-text text-muted small"><i class="fa-regular fa-lightbulb"></i> {{ item.note or 'Chưa có ghi chú.' }}</p>
                             </div>
                             <div class="col-md-4 text-end">
-                                <!-- Kiểm tra trạng thái đăng nhập -->
                                 {% if current_user.is_authenticated %}
-                                    <!-- Người dùng đã đăng nhập -->
-                                    <!-- Hiển thị link_Normal nếu có -->
                                     {% if 'link_normal' in item and item.link_normal and item.link_normal.lower().startswith('http') %}
                                         <a href="{{ item.link_normal }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100 mb-2">
                                             <i class="fa-solid fa-download"></i> LINK THƯỜNG
                                         </a>
                                     {% elif 'link' in item and item.link and item.link.lower().startswith('http') %}
-                                        <!-- Fallback cho cột link cũ nếu có -->
                                         <a href="{{ item.link }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100 mb-2">
                                             <i class="fa-solid fa-download"></i> LINK THƯỜNG
                                         </a>
@@ -158,7 +152,6 @@
                                         </button>
                                     {% endif %}
                                     
-                                    <!-- Hiển thị link_VIP nếu người dùng là VIP (đã donate) -->
                                     {% if current_user.is_donor %}
                                         {% if 'link_vip' in item and item.link_vip and item.link_vip.lower().startswith('http') %}
                                             <a href="{{ item.link_vip }}" target="_blank" class="btn btn-warning btn-download shadow-sm w-100">
@@ -166,13 +159,11 @@
                                             </a>
                                         {% endif %}
                                     {% else %}
-                                        <!-- Người dùng thường không thấy link VIP -->
                                         <button class="btn btn-outline-warning w-100 disabled" disabled>
                                             <i class="fa-solid fa-lock"></i> Dành cho VIP
                                         </button>
                                     {% endif %}
                                 {% else %}
-                                    <!-- Người dùng chưa đăng nhập -->
                                     <a href="/login" class="btn btn-info w-100 mb-2">
                                         <i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP ĐỂ XEM LINK
                                     </a>
@@ -273,7 +264,7 @@
                                 <li>📺 Netflix: <strong>Dùng chung</strong></li>
                                 <li>📸 Ảnh cập nhật: Có thể có</li>
                             </ul>
-                            <button type="button" class="w-100 btn btn-lg btn-outline-primary" onclick="showDonateInfo('450.000đ')">Chọn gói này</button>
+                            <button type="button" class="w-100 btn btn-lg btn-outline-primary" onclick="showDonateInfo(450000, '450.000đ')">Chọn gói này</button>
                         </div>
                     </div>
                 </div>
@@ -294,7 +285,7 @@
                                 <li>📸 Ảnh cập nhật: Mỗi tháng</li>
                                 <li>🔑 Mã Nuôi Tôi (NT): <strong>Độc quyền*</strong></li>
                             </ul>
-                            <button type="button" class="w-100 btn btn-lg btn-primary" onclick="showDonateInfo('1.450.000đ')">Chọn gói này</button>
+                            <button type="button" class="w-100 btn btn-lg btn-primary" onclick="showDonateInfo(1450000, '1.450.000đ')">Chọn gói này</button>
                         </div>
                     </div>
                 </div>
@@ -314,7 +305,7 @@
                                 <li>⭐ Tên trên website: <strong>Có thể</strong></li>
                                 <li>📹 Video call: Mỗi quý</li>
                             </ul>
-                            <button type="button" class="w-100 btn btn-lg btn-outline-dark" onclick="showDonateInfo('5.000.000đ')">Chọn gói này</button>
+                            <button type="button" class="w-100 btn btn-lg btn-outline-dark" onclick="showDonateInfo(5000000, '5.000.000đ')">Chọn gói này</button>
                         </div>
                     </div>
                 </div>
@@ -335,14 +326,32 @@
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body text-center">
-                            <p>Cảm ơn bạn đã chọn gói: <strong id="selectedPackagePrice" class="text-danger fs-4"></strong></p>
-                            <div class="p-3 bg-light rounded border mb-3">
-                                <p class="mb-1 fw-bold">Ngân hàng: Vietinbank</p>
-                                <p class="mb-1 fs-5 text-primary copy-text" role="button" onclick="copyToClipboard('100872675193')">STK: 100872675193 <i class="fa-regular fa-copy"></i></p>
-                                <p class="mb-0">Tên: NGUYEN QUANG DUY</p>
-                                <p class="mt-2 small text-muted">Nội dung: NUOITOI + Tên bạn</p>
+                            <p>Bạn đã chọn gói: <strong id="selectedPackagePrice" class="text-danger fs-4"></strong></p>
+                            
+                            <div class="mb-3">
+                                <label for="donorNameInput" class="form-label small text-muted">Nhập tên/lời nhắn của bạn (để in lên sao kê):</label>
+                                <input type="text" class="form-control text-center fw-bold" id="donorNameInput" placeholder="VD: Anh A dep trai" oninput="updateVietQR()">
+                                <div class="form-text text-primary" id="previewContent">Nội dung CK: NUOI EM</div>
                             </div>
-                            <p class="small text-muted">Vui lòng chụp màn hình sau khi chuyển khoản (nếu bạn muốn khoe).</p>
+
+                            <div class="p-3 bg-light rounded border mb-3 position-relative">
+                                <div id="qrLoader" class="d-none">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="small text-muted mt-2">Đang tạo mã QR...</p>
+                                </div>
+                                
+                                <img id="vietqrImage" src="" class="img-fluid shadow-sm border" alt="Quét mã QR để thanh toán" style="min-height: 300px; width: 100%; object-fit: contain;">
+                                
+                                <p class="mt-3 mb-1 fw-bold">Ngân hàng: Vietinbank</p>
+                                <p class="mb-1 fs-5 text-primary copy-text" role="button" onclick="copyToClipboard('100872675193')">
+                                    STK: 100872675193 <i class="fa-regular fa-copy"></i>
+                                </p>
+                                <p class="mb-0">Tên: NGUYEN QUANG DUY</p>
+                            </div>
+                            
+                            <div class="alert alert-info py-2 small">
+                                <i class="fa-solid fa-check-circle"></i> Hệ thống sẽ tự động nhận diện giao dịch của bạn.
+                            </div>
                         </div>
                         <div class="modal-footer justify-content-center">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
@@ -424,11 +433,71 @@
             }
         }
         
-        // Modal Donate
-        function showDonateInfo(price) {
-            document.getElementById('selectedPackagePrice').innerText = price;
+        // --- LOGIC VIETQR MỚI ---
+        const BANK_ID = "Vietinbank";
+        const ACCOUNT_NO = "100872675193";
+        const TEMPLATE = "compact2";
+        
+        // Biến lưu số tiền hiện tại đang chọn
+        let currentAmount = 0;
+
+        // Hàm hiển thị Modal và tạo QR ban đầu
+        function showDonateInfo(amount, displayString) {
+            // 1. Lưu số tiền và cập nhật giao diện text
+            currentAmount = amount;
+            document.getElementById('selectedPackagePrice').innerText = displayString;
+            
+            // 2. Reset ô nhập tên
+            document.getElementById('donorNameInput').value = "";
+            
+            // 3. Tạo mã QR ngay lập tức (với nội dung mặc định)
+            updateVietQR();
+
+            // 4. Hiển thị Modal
             var myModal = new bootstrap.Modal(document.getElementById('donateModal'));
             myModal.show();
+        }
+
+        // Hàm cập nhật ảnh QR khi người dùng gõ tên
+        function updateVietQR() {
+            // Lấy tên người dùng nhập (nếu trống thì để rỗng)
+            const name = document.getElementById('donorNameInput').value.trim();
+            
+            // Tạo nội dung chuyển khoản: "NUOI EM" + Tên
+            // Lưu ý: Cần xử lý tiếng Việt không dấu hoặc URL Encode để tránh lỗi QR
+            let description = "NUOI EM";
+            if (name) {
+                description += " " + removeVietnameseTones(name).toUpperCase();
+            }
+
+            // Cập nhật text xem trước
+            document.getElementById('previewContent').innerText = "Nội dung CK: " + description;
+
+            // Tạo Link API VietQR
+            // Cấu trúc: https://img.vietqr.io/image/<BANK>-<ACC>-<TEMPLATE>.png?amount=<AMT>&addInfo=<MSG>
+            const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-${TEMPLATE}.png?amount=${currentAmount}&addInfo=${encodeURIComponent(description)}`;
+            
+            // Gán vào thẻ ảnh
+            document.getElementById('vietqrImage').src = qrUrl;
+        }
+
+        // Hàm phụ trợ: Chuyển tiếng Việt có dấu thành không dấu (để ngân hàng dễ đọc)
+        function removeVietnameseTones(str) {
+            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a"); 
+            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e"); 
+            str = str.replace(/ì|í|ị|ỉ|ĩ/g,"i"); 
+            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,"o"); 
+            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u"); 
+            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y"); 
+            str = str.replace(/đ/g,"d");
+            str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+            str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+            str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+            str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+            str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+            str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+            str = str.replace(/Đ/g, "D");
+            return str;
         }
         
         // Chạy lọc lần đầu và load top donors

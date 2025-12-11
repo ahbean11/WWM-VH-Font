@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ tạo Font - WWM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-light">
+    
+    <div class="container mt-5" style="max-width: 800px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-primary"><i class="fa-solid fa-pen-nib"></i> Công cụ chỉnh sửa Font</h2>
+            <a href="/" class="btn btn-outline-secondary">Quay lại trang chủ</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-user-lock"></i> Chức năng chỉ dành cho thành viên đã đăng nhập</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if current_user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <strong>Xin chào, {{ current_user.username }}!</strong><br>
+                        {% if current_user.is_donor %}
+                        <span class="badge bg-success"><i class="fas fa-crown"></i> NHÀ TÀI TRỢ VIP</span><br>
+                        <small>Bạn có thể sử dụng công cụ không giới hạn lần.</small>
+                        {% else %}
+                        <span class="badge bg-primary"><i class="fas fa-user"></i> THÀNH VIÊN THƯỜNG</span><br>
+                        <small>Lượt miễn phí còn lại: <strong>{{ current_user.free_trials }}</strong></small>
+                        {% endif %}
+                    </div>
+                    
+                    {% if current_user.is_donor or current_user.free_trials > 0 %}
+                    <form action="/process-font" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Upload Font (.ttf)</label>
+                            <input type="file" name="font_file" class="form-control" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                {% if current_user.is_donor %}
+                                    <i class="fas fa-crown"></i> Tạo Font (Dành cho VIP)
+                                {% else %}
+                                    {% if current_user.free_trials > 0 %}
+                                        Tạo Font (Miễn phí - Còn {{ current_user.free_trials }} lần)
+                                    {% endif %}
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Hết lượt dùng thử</h5>
+                        <p>Bạn đã hết lượt dùng thử miễn phí. Để tiếp tục sử dụng công cụ:</p>
+                        <ol>
+                            <li>Trở thành Nhà tài trợ VIP bằng cách nạp 50.000đ hoặc hơn</li>
+                            <li><a href="/profile" class="btn btn-success btn-sm">Nạp tiền ngay</a></li>
+                        </ol>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-3 text-center">
+                        <a href="/profile" class="text-decoration-none">
+                            <i class="fas fa-wallet"></i> Quản lý tài khoản & Lịch sử nạp tiền
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <h4><i class="fas fa-lock"></i> Chức năng này chỉ dành cho thành viên</h4>
+                        <p class="text-muted">Vui lòng đăng nhập bằng Google để sử dụng công cụ chỉnh sửa Font</p>
+                        <a href="/login/google" class="btn btn-danger">
+                            <i class="fab fa-google"></i> Đăng nhập bằng Google
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

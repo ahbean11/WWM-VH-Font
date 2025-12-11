@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WWM Patcher - Auto Detect</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .card-custom {
+            width: 100%;
+            max-width: 600px;
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .header-bg {
+            background: #ff6b6b;
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 20px 20px 0 0;
+        }
+        .progress-area { display: none; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="card card-custom">
+        <div class="header-bg">
+            <h3 class="mb-1"><i class="fa-solid fa-file-zipper"></i> WWM PATCHER TOOL</h3>
+            <p class="mb-0 opacity-75">Hệ thống nhận diện phiên bản tự động</p>
+        </div>
+        
+        <div class="card-body p-4">
+            
+            <input type="hidden" id="mpkUrl" value="https://huggingface.co/datasets/duytim/WWM-Resources/resolve/main/Resources.mpk">
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-danger">1. Chọn file Resources.mpk</label>
+                <input type="file" id="gameFileInput" class="form-control" accept=".mpk">
+                <div class="form-text small">Tìm trong thư mục game.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold text-primary">2. Chọn Font chữ của bạn (.ttf)</label>
+                <input type="file" id="fontInput" class="form-control" accept=".ttf">
+            </div>
+
+            <div id="alertBox" class="alert alert-danger d-none"></div>
+
+            <button id="btnProcess" class="btn btn-dark w-100 py-3 fw-bold" onclick="startProcess()">
+                <i class="fa-solid fa-bolt"></i> KIỂM TRA & TẠO FILE
+            </button>
+
+            <div id="progressArea" class="progress-area">
+                <div class="d-flex justify-content-between mb-1">
+                    <span id="statusTitle" class="fw-bold text-primary">Đang xử lý...</span>
+                    <span id="percentText" class="fw-bold">0%</span>
+                </div>
+                <div class="progress" style="height: 10px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div>
+                </div>
+                <small id="statusDetail" class="text-muted d-block mt-2 text-center">...</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const FONTS_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
+<Root>
+	<Font><Name>NormalFont</Name><File>normal.ttf</File></Font>
+	<Font><Name>TitleFont</Name><File>title.ttf</File></Font>
+	<Font><Name>ArtFont</Name><File>art.ttf</File></Font>
+</Root>`;
+
+        async function startProcess() {
+            const gameFileInput = document.getElementById('gameFileInput');
+            const fontInput = document.getElementById('fontInput');
+            const alertBox = document.getElementById('alertBox');
+            const mpkUrl = document.getElementById('mpkUrl').value;
+            
+            // UI Elements
+            const btn = document.getElementById('btnProcess');
+            const progressArea = document.getElementById('progressArea');
+            const progressBar = document.getElementById('progressBar');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusDetail = document.getElementById('statusDetail');
+            const percentText = document.getElementById('percentText');
+
+            // Reset
+            alertBox.classList.add('d-none');
+
+            // --- KIỂM TRA LOGIC TÊN FILE (CLIENT SIDE) ---
+            if (gameFileInput.files.length === 0) {
+                showAlert("Vui lòng chọn file Resources.mpk từ thư mục game!");
+                return;
+            }
+
+            const gameFileName = gameFileInput.files[0].name;
+            
+            // 1. Check Steam
+            if (gameFileName.includes("Resources9669") || gameFileName.includes("9669")) {
+                showAlert(`⚠️ Phát hiện phiên bản Steam (${gameFileName}).<br>Hiện tại Tool CHƯA HỖ TRỢ phiên bản này.`);
+                return;
+            }
+
+            // 2. Check Valid Name
+            if (!gameFileName.toLowerCase().startsWith("resources.mpk")) {
+                // Cho phép lỏng lẻo một chút hoặc chặn cứng tùy bạn. Ở đây mình cảnh báo nhưng vẫn cho chạy nếu muốn chặn thì return.
+                if(!confirm(`Tên file lạ: "${gameFileName}".\nFile chuẩn thường là "Resources.mpk". Bạn có chắc chắn muốn tiếp tục?`)) {
+                    return;
+                }
+            }
+
+            // 3. Check Font
+            if (fontInput.files.length === 0) {
+                showAlert("Vui lòng chọn file Font (.ttf)!");
+                return;
+            }
+
+            // --- BẮT ĐẦU QUÁ TRÌNH TẢI & NÉN (GIỐNG CŨ) ---
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG UPLOAD & KIỂM TRA...';
+            progressArea.style.display = 'block';
+            updateProgress(0, "Đang kết nối server...");
+
+            try {
+                const zip = new JSZip();
+
+                const response = await fetch(mpkUrl);
+                if (!response.ok) throw new Error("Lỗi tải file gốc.");
+                
+                const contentLength = +response.headers.get('Content-Length');
+                const reader = response.body.getReader();
+                let receivedLength = 0;
+                let chunks = [];
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    receivedLength += value.length;
+                    if (contentLength) {
+                        let percent = Math.round((receivedLength / contentLength) * 100);
+                        updateProgress(percent, `Đang tải dữ liệu gốc: ${formatBytes(receivedLength)}`);
+                    }
+                }
+                
+                zip.file("Resources.mpk", new Blob(chunks));
+
+                const userFontFile = fontInput.files[0];
+                const fontsFolder = zip.folder("Engine").folder("Content").folder("Fonts");
+                
+                fontsFolder.file("Fonts.xml", FONTS_XML_CONTENT);
+                fontsFolder.file("normal.ttf", userFontFile);
+                fontsFolder.file("title.ttf", userFontFile);
+                fontsFolder.file("art.ttf", userFontFile);
+
+                updateProgress(100, "Đang nén file ZIP...");
+                const zipContent = await zip.generateAsync({type: "blob"});
+                saveAs(zipContent, "WWM_VietHoa_Full.zip");
+                
+                statusTitle.innerText = "✅ THÀNH CÔNG!";
+                statusDetail.innerText = "File đã được tải xuống.";
+                progressBar.className = 'progress-bar bg-success';
+                
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> LÀM LẠI';
+                }, 3000);
+
+            } catch (e) {
+                showAlert("Lỗi: " + e.message);
+                btn.disabled = false;
+                progressArea.style.display = 'none';
+            }
+        }
+
+        function updateProgress(percent, detail) {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('percentText').innerText = percent + '%';
+            if(detail) document.getElementById('statusDetail').innerText = detail;
+        }
+
+        function showAlert(msg) {
+            const box = document.getElementById('alertBox');
+            box.innerHTML = msg;
+            box.classList.remove('d-none');
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${['Bytes', 'KB', 'MB', 'GB'][i]}`;
+        }
+    </script>
+</body>
+</html>

@@ -5,5 +5,5 @@ gunicorn
 flask-sqlalchemy
 flask-login
 flask-bcrypt
-python-dotenv  <-- Thêm dòng này
-psycopg2-binary <-- Thêm dòng này để chạy PostgreSQL trên Render
+python-dotenv
+psycopg2-binary

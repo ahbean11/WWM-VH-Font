@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WWM Patcher - Auto Detect</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        body { 
+            background-color: #f8f9fa; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        
+        .hero-tool { 
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
+            color: white; 
+            padding: 40px 0; 
+            margin-bottom: 30px; 
+        }
+        
+        .card-custom {
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+        .card-custom:hover {
+            transform: translateY(-3px);
+        }
+        
+        .progress-area { 
+            display: none; 
+            margin-top: 20px; 
+            padding: 15px; 
+            background: #f8f9fa; 
+            border-radius: 10px; 
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero-tool">
+        <div class="container text-center">
+            <h1 class="display-5 fw-bold"><i class="fa-solid fa-file-zipper"></i> WWM PATCHER TOOL</h1>
+            <p class="lead">Hệ thống nhận diện phiên bản tự động</p>
+        </div>
+    </section>
+
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-primary"><i class="fa-solid fa-pen-nib"></i> Công cụ chỉnh sửa Font</h2>
+            <a href="/" class="btn btn-outline-secondary">Quay lại trang chủ</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card card-custom">
+                    <div class="card-body p-4">
+                        {% if current_user.is_authenticated %}
+                            <div class="alert alert-info mb-4">
+                                <strong>Xin chào, {{ current_user.username }}!</strong><br>
+                                {% if current_user.is_donor %}
+                                <span class="badge bg-success"><i class="fas fa-crown"></i> NHÀ TÀI TRỢ VIP</span><br>
+                                <small>Bạn có thể sử dụng công cụ không giới hạn lần.</small>
+                                {% else %}
+                                <span class="badge bg-primary"><i class="fas fa-user"></i> THÀNH VIÊN THƯỜNG</span><br>
+                                <small>Lượt miễn phí còn lại: <strong>{{ current_user.free_trials }}</strong></small>
+                                {% endif %}
+                            </div>
+                            
+                            {% if current_user.is_donor or current_user.free_trials > 0 %}
+                                <input type="hidden" id="mpkUrl" value="https://huggingface.co/datasets/duytim/WWM-Resources/resolve/main/Resources.mpk">
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-danger">1. Chọn file Resources.mpk</label>
+                                    <input type="file" id="gameFileInput" class="form-control" accept=".mpk">
+                                    <div class="form-text small">Tìm trong thư mục game.</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-primary">2. Chọn Font chữ của bạn (.ttf)</label>
+                                    <input type="file" id="fontInput" class="form-control" accept=".ttf">
+                                </div>
+
+                                <div id="alertBox" class="alert alert-danger d-none"></div>
+
+                                <button id="btnProcess" class="btn btn-primary w-100 py-3 fw-bold" onclick="startProcess()">
+                                    <i class="fa-solid fa-bolt"></i> KIỂM TRA & TẠO FILE
+                                </button>
+
+                                <div id="progressArea" class="progress-area">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span id="statusTitle" class="fw-bold text-primary">Đang xử lý...</span>
+                                        <span id="percentText" class="fw-bold">0%</span>
+                                    </div>
+                                    <div class="progress" style="height: 10px;">
+                                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div>
+                                    </div>
+                                    <small id="statusDetail" class="text-muted d-block mt-2 text-center">...</small>
+                                </div>
+                                
+                                <!-- Element để hiển thị số lượt dùng thử còn lại -->
+                                <div id="trialInfo" class="mt-3 text-center">
+                                    {% if not current_user.is_donor %}
+                                        <small class="text-muted">Bạn còn <strong id="trialCount">{{ current_user.free_trials }}</strong> lượt miễn phí</small>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <h5><i class="fas fa-exclamation-triangle"></i> Hết lượt dùng thử</h5>
+                                    <p>Bạn đã hết lượt dùng thử miễn phí. Để tiếp tục sử dụng công cụ:</p>
+                                    <ol>
+                                        <li>Trở thành Nhà tài trợ VIP bằng cách nạp 10.000đ hoặc hơn</li>
+                                        <li><a href="/profile" class="btn btn-success btn-sm">Nạp tiền ngay</a></li>
+                                    </ol>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="mt-3 text-center">
+                                <a href="/profile" class="text-decoration-none">
+                                    <i class="fas fa-wallet"></i> Quản lý tài khoản & Lịch sử nạp tiền
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <h4><i class="fas fa-lock"></i> Chức năng này chỉ dành cho thành viên</h4>
+                                <p class="text-muted">Vui lòng đăng nhập bằng Google để sử dụng công cụ chỉnh sửa Font</p>
+                                <a href="/login/google" class="btn btn-danger">
+                                    <i class="fab fa-google"></i> Đăng nhập bằng Google
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-4 text-muted bg-white border-top mt-5">
+        <small>© 2025 WWM Patcher & Project "Nuôi Tôi". Admin liên tục cập nhật link mới. F5 để làm mới danh sách.</small>
+    </footer>
+
+    <script>
+        const FONTS_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
+<Root>
+	<Font><Name>NormalFont</Name><File>normal.ttf</File></Font>
+	<Font><Name>TitleFont</Name><File>title.ttf</File></Font>
+	<Font><Name>ArtFont</Name><File>art.ttf</File></Font>
+</Root>`;
+
+        async function startProcess() {
+            const gameFileInput = document.getElementById('gameFileInput');
+            const fontInput = document.getElementById('fontInput');
+            const alertBox = document.getElementById('alertBox');
+            const mpkUrl = document.getElementById('mpkUrl').value;
+            
+            // UI Elements
+            const btn = document.getElementById('btnProcess');
+            const progressArea = document.getElementById('progressArea');
+            const progressBar = document.getElementById('progressBar');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusDetail = document.getElementById('statusDetail');
+            const percentText = document.getElementById('percentText');
+
+            // Reset
+            alertBox.classList.add('d-none');
+
+            // --- KIỂM TRA LOGIC TÊN FILE (CLIENT SIDE) ---
+            if (gameFileInput.files.length === 0) {
+                showAlert("Vui lòng chọn file Resources.mpk từ thư mục game!");
+                return;
+            }
+
+            const gameFileName = gameFileInput.files[0].name;
+            
+            // 1. Check Steam
+            if (gameFileName.includes("Resources9669") || gameFileName.includes("9669")) {
+                showAlert(`⚠️ Phát hiện phiên bản Steam (${gameFileName}).<br>Hiện tại Tool CHƯA HỖ TRỢ phiên bản này.`);
+                return;
+            }
+
+            // 2. Check Valid Name
+            if (!gameFileName.toLowerCase().startsWith("resources.mpk")) {
+                // Cho phép lỏng lẻo một chút hoặc chặn cứng tùy bạn. Ở đây mình cảnh báo nhưng vẫn cho chạy nếu muốn chặn thì return.
+                if(!confirm(`Tên file lạ: "${gameFileName}".\nFile chuẩn thường là "Resources.mpk". Bạn có chắc chắn muốn tiếp tục?`)) {
+                    return;
+                }
+            }
+
+            // 3. Check Font
+            if (fontInput.files.length === 0) {
+                showAlert("Vui lòng chọn file Font (.ttf)!");
+                return;
+            }
+
+            // Kiểm tra lượt dùng thử trước khi bắt đầu xử lý
+            const canProceed = await checkTrialBeforeProcessing();
+            if (!canProceed) {
+                return;
+            }
+
+            // --- BẮT ĐẦU QUÁ TRÌNH TẢI & NÉN (GIỐNG CŨ) ---
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG UPLOAD & KIỂM TRA...';
+            progressArea.style.display = 'block';
+            updateProgress(0, "Đang kết nối server...");
+
+            try {
+                const zip = new JSZip();
+
+                const response = await fetch(mpkUrl);
+                if (!response.ok) throw new Error("Lỗi tải file gốc.");
+                
+                const contentLength = +response.headers.get('Content-Length');
+                const reader = response.body.getReader();
+                let receivedLength = 0;
+                let chunks = [];
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    receivedLength += value.length;
+                    if (contentLength) {
+                        let percent = Math.round((receivedLength / contentLength) * 100);
+                        updateProgress(percent, `Đang tải dữ liệu gốc: ${formatBytes(receivedLength)}`);
+                    }
+                }
+                
+                zip.file("Resources.mpk", new Blob(chunks));
+
+                const userFontFile = fontInput.files[0];
+                const fontsFolder = zip.folder("Engine").folder("Content").folder("Fonts");
+                
+                fontsFolder.file("Fonts.xml", FONTS_XML_CONTENT);
+                fontsFolder.file("normal.ttf", userFontFile);
+                fontsFolder.file("title.ttf", userFontFile);
+                fontsFolder.file("art.ttf", userFontFile);
+
+                updateProgress(100, "Đang nén file ZIP...");
+                const zipContent = await zip.generateAsync({type: "blob"});
+                saveAs(zipContent, "WWM_VietHoa_Full.zip");
+                
+                statusTitle.innerText = "✅ THÀNH CÔNG!";
+                statusDetail.innerText = "File đã được tải xuống.";
+                progressBar.className = 'progress-bar bg-success';
+                
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> LÀM LẠI';
+                }, 3000);
+
+            } catch (e) {
+                showAlert("Lỗi: " + e.message);
+                btn.disabled = false;
+                progressArea.style.display = 'none';
+            }
+        }
+
+        // Hàm kiểm tra lượt dùng thử trước khi xử lý
+        async function checkTrialBeforeProcessing() {
+            try {
+                const response = await fetch('/api/check-trial');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showAlert("Lỗi khi kiểm tra trạng thái dùng thử: " + data.message);
+                    return false;
+                }
+                
+                if (!data.can_use_trial) {
+                    showAlert("Bạn đã hết lượt dùng thử. Hãy trở thành Nhà tài trợ VIP để sử dụng không giới hạn!");
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Lỗi kết nối đến server:', error);
+                showAlert("Không thể kiểm tra trạng thái dùng thử. Vui lòng thử lại sau.");
+                return false;
+            }
+        }
+
+        // Hàm gọi API để trừ lượt dùng thử
+        async function useTrial() {
+            try {
+                const response = await fetch('/api/use-trial', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log(data.message);
+                    // Cập nhật UI để hiển thị số lượt còn lại
+                    const trialCountElement = document.getElementById('trialCount');
+                    if (trialCountElement) {
+                        trialCountElement.textContent = data.remaining_trials;
+                    }
+                    
+                    // Nếu hết lượt dùng thử, hiển thị thông báo và cập nhật giao diện
+                    if (data.remaining_trials <= 0 && !data.is_donor) {
+                        // Reload trang sau 3 giây để cập nhật trạng thái
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    }
+                } else {
+                    console.error('Lỗi khi trừ lượt dùng thử:', data.message);
+                    showAlert("Lỗi: " + data.message);
+                }
+            } catch (error) {
+                console.error('Lỗi kết nối đến server:', error);
+                showAlert("Không thể kết nối đến server để cập nhật lượt dùng thử.");
+            }
+        }
+
+        function updateProgress(percent, detail) {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('percentText').innerText = percent + '%';
+            if(detail) document.getElementById('statusDetail').innerText = detail;
+        }
+
+        function showAlert(msg) {
+            const box = document.getElementById('alertBox');
+            box.innerHTML = msg;
+            box.classList.remove('d-none');
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${['Bytes', 'KB', 'MB', 'GB'][i]}`;
+        }
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -7,7 +7,12 @@ import struct
 import re
 import sys
 import hashlib
+import qrcode
+from io import BytesIO
+import base64
 import uuid # Dùng để tạo ID cho khách vãng lai
+import time
+import random
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
@@ -58,43 +63,44 @@ login_manager.login_message = "Vui lòng đăng nhập để sử dụng tính n
 login_manager.login_message_category = "info"
 
 # --- DATABASE MODELS ---
-class User(db.Model, UserMixin):
+class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), unique=True, nullable=False)
-    password = db.Column(db.String(60), nullable=False)
-    balance = db.Column(db.Integer, default=0)
+    google_id = db.Column(db.String(100), unique=True)
+    email = db.Column(db.String(100))
+    username = db.Column(db.String(100))
     free_trials = db.Column(db.Integer, default=1)
     is_donor = db.Column(db.Boolean, default=False)
-    email = db.Column(db.String(120), unique=True, nullable=True)  # Thêm email field
-    transactions = db.relationship('Transaction', backref='author', lazy=True)
+    # Thêm trường để lưu tổng số tiền donate
+    total_donated = db.Column(db.Integer, default=0)
 
-    # Ensure the is_donor column exists
-    @staticmethod
-    def add_missing_columns():
-        # This is a simple approach to handle missing columns
-        # In production, you should use proper migrations
-        pass
-
+# Bảng lưu đơn hàng (Transactions)
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    amount = db.Column(db.Integer, nullable=False)
-    description = db.Column(db.String(100), nullable=False)
-    status = db.Column(db.String(20), default='pending') # pending, success
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Nullable cho khách vãng lai
-    guest_id = db.Column(db.String(50), nullable=True) # ID tạm cho khách vãng lai
+    order_code = db.Column(db.String(50), unique=True)  # Mã đơn hàng (ví dụ: DH1234)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    amount = db.Column(db.Integer)  # Số tiền
+    status = db.Column(db.String(20), default='PENDING')  # PENDING, SUCCESS, CANCELLED
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Quan hệ với User
+    user = db.relationship('User', backref=db.backref('transactions', lazy=True))
+
+# Bảng lưu lịch sử donate (giữ lại để tương thích ngược)
+class Donation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    amount = db.Column(db.Integer)  # Số tiền donate (VNĐ)
+    transaction_id = db.Column(db.String(100), unique=True)  # ID giao dịch từ SePay
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quan hệ với User
+    user = db.relationship('User', backref=db.backref('donations', lazy=True))
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Handle the case where the user table might not have the is_donor column yet
-    try:
-        return User.query.get(int(user_id))
-    except Exception as e:
-        print(f"Error loading user: {e}")
-        # If there's an error, recreate the tables
-        with app.app_context():
-            db.create_all()
-        return User.query.get(int(user_id))
+    return User.query.get(int(user_id))
+    # Bỏ đoạn try/except db.create_all() đi, nó không tốt cho production.
+    # Việc tạo bảng nên chạy 1 lần lúc deploy bằng lệnh riêng hoặc để trong if __name__ == '__main__'
 
 # --- Cấu HÌNH SHEET ---
 SHEET_URL = os.environ.get('SHEET_URL')
@@ -134,7 +140,7 @@ def home():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated: return redirect(url_for('font_tool'))
+    if current_user.is_authenticated: return redirect(url_for('profile'))
     # Removed username/password login as requested - only Google login is allowed now
     return render_template('login.html')
 
@@ -178,7 +184,7 @@ def google_callback():
                     db.session.commit()
             
             login_user(user)
-            return redirect(url_for('font_tool'))
+            return redirect(url_for('profile'))
         else:
             flash('Không thể xác thực với Google.', 'danger')
     except Exception as e:
@@ -262,17 +268,103 @@ def profile():
 
 # --- WEBHOOK SEPAY (XỬ LÝ TỰ ĐỘNG) ---
 @app.route('/api/sepay-webhook', methods=['POST'])
-def sepay_webhook():
+def handle_sepay_webhook():
+    # Kiểm tra API Key trong header
+    auth_header = request.headers.get('Authorization')
+    expected_api_key = os.getenv('SEPAY_API_KEY')
+    
+    if not auth_header or not expected_api_key:
+        return jsonify({'success': False, 'message': 'Missing authorization header or API key not configured'}), 401
+    
+    # Kiểm tra định dạng Authorization: Apikey API_KEY_CUA_BAN
+    if not auth_header.startswith('Apikey '):
+        return jsonify({'success': False, 'message': 'Invalid authorization header format'}), 401
+    
+    provided_api_key = auth_header.split(' ')[1]
+    if provided_api_key != expected_api_key:
+        return jsonify({'success': False, 'message': 'Invalid API key'}), 401
+    
     try:
         data = request.json
-        # Dữ liệu mẫu SePay: {'gateway': 'MBBank', 'transferAmount': 10000, 'content': 'WWM 5 abc123...', 'customerEmail': 'user@example.com'}
+        # Dữ liệu mẫu SePay: {'gateway': 'MBBank', 'transferAmount': 10000, 'description': 'DH1234 chuyen khoan mua vip', 'id': 'TRANS123', 'customerEmail': 'user@example.com'}
         
-        content = data.get('content', '')
-        amount = data.get('transferAmount', 0)
+        description = data.get('description', '')  # Nội dung CK ví dụ: "DH1234 chuyen khoan mua vip"
+        real_amount = data.get('transferAmount', 0)  # Số tiền thực nhận
+        sepay_trans_id = data.get('id', '')  # ID giao dịch phía ngân hàng (để chống trùng)
         customer_email = data.get('customerEmail', '')  # Lấy email từ SePay
         
-        if not content: return jsonify({'success': False}), 400
+        if not description: 
+            return jsonify({'success': False, 'message': 'Không có nội dung chuyển khoản'}), 400
 
+        # 2. Tìm Mã đơn hàng (DH1234) trong nội dung description
+        import re
+        order_code_match = re.search(r'(DH\d+)', description)
+        if not order_code_match:
+            # Nếu không tìm thấy mã đơn hàng, xử lý theo logic cũ
+            return process_old_donation_logic(data)
+            
+        order_code = order_code_match.group(1)
+
+        # 3. Query Database tìm đơn hàng
+        transaction = Transaction.query.filter_by(order_code=order_code).first()
+
+        # 4. Kiểm tra điều kiện an toàn
+        if not transaction:
+            return jsonify({'success': False, 'message': 'Đơn hàng không tồn tại'}), 200
+        
+        if transaction.status == 'SUCCESS':
+            return jsonify({'success': False, 'message': 'Giao dịch này đã xử lý rồi'}), 200  # Chống xử lý lặp lại (Idempotency)
+
+        if real_amount < transaction.amount:
+            return jsonify({'success': False, 'message': 'Chuyển thiếu tiền'}), 200  # Hoặc xử lý treo đơn
+
+        # 5. THỰC HIỆN CỘNG TIỀN & SET VIP (Transaction Atomic)
+        try:
+            # A. Cập nhật trạng thái giao dịch
+            transaction.status = 'SUCCESS'
+            transaction.updated_at = datetime.utcnow()
+
+            # B. Cộng tiền vào ví user
+            user = User.query.get(transaction.user_id)
+            if user:
+                user.total_donated += real_amount
+                
+                # C. Set VIP (Nếu gói nạp có logic set VIP)
+                if real_amount >= 10000:  # Ví dụ nạp > 10k được VIP
+                    user.is_donor = True
+                
+                # Tạo bản ghi donate để lưu lịch sử
+                donation = Donation(
+                    user_id=transaction.user_id,
+                    amount=real_amount,
+                    transaction_id=sepay_trans_id
+                )
+                db.session.add(donation)
+                
+                db.session.commit()
+                
+                return jsonify({"success": True, "message": f"Đã cộng tiền cho user {user.id}"}), 200
+            else:
+                db.session.rollback()
+                return jsonify({"success": False, "message": "Không tìm thấy người dùng"}), 200
+
+        except Exception as e:
+            # Rollback nếu lỗi DB
+            db.session.rollback()
+            return jsonify({"success": False, "message": f"Lỗi khi xử lý giao dịch: {str(e)}"}), 500
+            
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Lỗi hệ thống: {str(e)}"}), 500
+
+# Hàm xử lý logic cũ cho các giao dịch không theo định dạng mới
+def process_old_donation_logic(data):
+    """Xử lý logic cũ cho các giao dịch không theo định dạng mới"""
+    try:
+        content = data.get('description', '')  # Sử dụng description thay cho content
+        amount = data.get('transferAmount', 0)
+        transaction_id = data.get('id', '')  # Sử dụng id thay cho transactionId
+        customer_email = data.get('customerEmail', '')
+        
         import hashlib
         
         # LOGIC 1: Xác thực donate từ user đã tồn tại
@@ -286,14 +378,28 @@ def sepay_webhook():
                 # Kiểm tra hash email
                 expected_hash = hashlib.md5(user.email.lower().encode()).hexdigest()
                 if expected_hash == email_hash:
-                    user.balance += int(amount)
-                    # Set donor status nếu donate từ 10.000đ trở lên
-                    if int(amount) >= 10000:
-                        user.is_donor = True
-                    new_trans = Transaction(amount=amount, description=content, status='success', user_id=user.id)
-                    db.session.add(new_trans)
-                    db.session.commit()
-                    return jsonify({'success': True, 'msg': 'User donation processed'}), 200
+                    # Kiểm tra xem giao dịch này đã được xử lý chưa
+                    existing_donation = Donation.query.filter_by(transaction_id=transaction_id).first()
+                    if not existing_donation:
+                        # Tạo bản ghi donate mới
+                        donation = Donation(
+                            user_id=user.id,
+                            amount=int(amount),
+                            transaction_id=transaction_id
+                        )
+                        db.session.add(donation)
+                        
+                        # Cập nhật tổng số tiền donate của user
+                        user.total_donated += int(amount)
+                        
+                        # Set donor status nếu donate từ 10.000đ trở lên
+                        if user.total_donated >= 10000:
+                            user.is_donor = True
+                            
+                        db.session.commit()
+                        return jsonify({'success': True, 'msg': 'User donation processed'}), 200
+                    else:
+                        return jsonify({'success': False, 'msg': 'Transaction already processed'}), 400
 
         # LOGIC 2: Xác thực donate từ user mới
         # Format: WWM NEW <email_hash>
@@ -309,16 +415,30 @@ def sepay_webhook():
                     if user_hash == email_hash:
                         matched_user = user
                         break
-            
+        
             if matched_user:
-                matched_user.balance += int(amount)
-                # Set donor status nếu donate từ 10.000đ trở lên
-                if int(amount) >= 10000:
-                    matched_user.is_donor = True
-                new_trans = Transaction(amount=amount, description=content, status='success', user_id=matched_user.id)
-                db.session.add(new_trans)
-                db.session.commit()
-                return jsonify({'success': True, 'msg': 'Existing user new donation processed'}), 200
+                # Kiểm tra xem giao dịch này đã được xử lý chưa
+                existing_donation = Donation.query.filter_by(transaction_id=transaction_id).first()
+                if not existing_donation:
+                    # Tạo bản ghi donate mới
+                    donation = Donation(
+                        user_id=matched_user.id,
+                        amount=int(amount),
+                        transaction_id=transaction_id
+                    )
+                    db.session.add(donation)
+                    
+                    # Cập nhật tổng số tiền donate của user
+                    matched_user.total_donated += int(amount)
+                    
+                    # Set donor status nếu donate từ 10.000đ trở lên
+                    if matched_user.total_donated >= 10000:
+                        matched_user.is_donor = True
+                    
+                    db.session.commit()
+                    return jsonify({'success': True, 'msg': 'Existing user new donation processed'}), 200
+                else:
+                    return jsonify({'success': False, 'msg': 'Transaction already processed'}), 400
             else:
                 # Lưu transaction cho user mới, sẽ xử lý khi họ đăng nhập
                 new_trans = Transaction(amount=amount, description=content, status='pending', guest_id=email_hash)
@@ -327,10 +447,9 @@ def sepay_webhook():
                 return jsonify({'success': True, 'msg': 'New user donation recorded, pending registration'}), 200
 
         return jsonify({'success': True, 'msg': 'No matching user found'}), 200
-
     except Exception as e:
-        print(f"Webhook Error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Lỗi khi xử lý logic cũ: {str(e)}'}), 500
 
 # --- API CHECK THANH TOÁN (CHO KHÁCH VÃNG LAI) ---
 @app.route('/api/check-guest-payment')
@@ -343,6 +462,179 @@ def check_guest_payment():
     if trans and trans.amount >= 10000:
         return jsonify({'paid': True})
     return jsonify({'paid': False})
+
+# --- API để trừ lượt dùng thử ---
+@app.route('/api/use-trial', methods=['POST'])
+@login_required
+def use_trial():
+    """API endpoint để trừ một lượt dùng thử của người dùng"""
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'message': 'Người dùng chưa đăng nhập'}), 401
+    
+    # Chỉ trừ lượt nếu người dùng không phải là donor
+    if not current_user.is_donor and current_user.free_trials > 0:
+        current_user.free_trials -= 1
+        db.session.commit()
+        return jsonify({
+            'success': True, 
+            'message': f'Đã dùng 1 lượt miễn phí. Còn lại: {current_user.free_trials}',
+            'remaining_trials': current_user.free_trials,
+            'is_donor': current_user.is_donor
+        })
+    elif current_user.is_donor:
+        return jsonify({
+            'success': True, 
+            'message': 'Người dùng là VIP, không cần trừ lượt',
+            'remaining_trials': current_user.free_trials,
+            'is_donor': current_user.is_donor
+        })
+    else:
+        return jsonify({
+            'success': False, 
+            'message': 'Người dùng đã hết lượt dùng thử',
+            'remaining_trials': 0,
+            'is_donor': current_user.is_donor
+        }), 400
+
+# --- API để kiểm tra trạng thái dùng thử ---
+@app.route('/api/check-trial', methods=['GET'])
+@login_required
+def check_trial():
+    """API endpoint để kiểm tra trạng thái dùng thử của người dùng"""
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'message': 'Người dùng chưa đăng nhập'}), 401
+    
+    return jsonify({
+        'success': True,
+        'is_donor': current_user.is_donor,
+        'remaining_trials': current_user.free_trials,
+        'can_use_trial': current_user.is_donor or current_user.free_trials > 0
+    })
+
+# --- API tạo đơn hàng ---
+@app.route('/api/create-deposit', methods=['POST'])
+@login_required
+def create_deposit():
+    """Tạo đơn hàng nạp tiền mới cho người dùng"""
+    try:
+        data = request.json
+        amount = data.get('amount')
+        
+        if not amount or amount < 10000:
+            return jsonify({'success': False, 'message': 'Số tiền phải lớn hơn hoặc bằng 10.000đ'}), 400
+            
+        # Tạo mã đơn hàng duy nhất
+        order_code = f"DH{int(time.time())}{random.randint(100, 999)}"
+        
+        # Tạo giao dịch mới
+        transaction = Transaction(
+            order_code=order_code,
+            user_id=current_user.id,
+            amount=amount,
+            status='PENDING'
+        )
+        
+        db.session.add(transaction)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'order_code': order_code,
+            'amount': amount,
+            'message': 'Đơn hàng đã được tạo thành công'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Lỗi khi tạo đơn hàng: {str(e)}'}), 500
+
+# --- API kiểm tra trạng thái đơn hàng ---
+@app.route('/api/check-status/<order_code>')
+@login_required
+def check_transaction_status(order_code):
+    """Kiểm tra trạng thái của giao dịch"""
+    try:
+        # Tìm giao dịch theo mã
+        transaction = Transaction.query.filter_by(order_code=order_code, user_id=current_user.id).first()
+        
+        if not transaction:
+            return jsonify({'success': False, 'message': 'Không tìm thấy giao dịch'}), 404
+            
+        # Trả về thông tin giao dịch
+        return jsonify({
+            'success': True,
+            'order_code': transaction.order_code,
+            'amount': transaction.amount,
+            'status': transaction.status,
+            'created_at': transaction.created_at.isoformat() if transaction.created_at else None,
+            'updated_at': transaction.updated_at.isoformat() if transaction.updated_at else None
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Lỗi khi kiểm tra giao dịch: {str(e)}'}), 500
+
+# --- API tạo mã QR cho donate ---
+@app.route('/api/generate-qr')
+@login_required
+def generate_qr():
+    """Tạo mã QR cho donate với nội dung chứa user ID và email hash"""
+    try:
+        # Tạo nội dung cho QR code: WWM <user_id> <email_hash>
+        email_hash = hashlib.md5(current_user.email.lower().encode()).hexdigest()
+        content = f"WWM {current_user.id} {email_hash}"
+        
+        # Tạo mã QR
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(content)
+        qr.make(fit=True)
+        
+        # Tạo ảnh QR
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Chuyển đổi ảnh sang base64 để trả về
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'success': True,
+            'qr_code': f'data:image/png;base64,{img_str}',
+            'content': content
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- API lấy top donor ---
+@app.route('/api/top-donors')
+def top_donors():
+    """Lấy danh sách top donor để hiển thị trên trang chủ"""
+    try:
+        # Lấy top 3 donor có tổng số tiền donate cao nhất
+        top_donors = User.query.filter(User.total_donated > 0)\
+                              .order_by(User.total_donated.desc())\
+                              .limit(3)\
+                              .all()
+        
+        # Format dữ liệu để trả về
+        donors_data = []
+        for i, user in enumerate(top_donors):
+            # Che dấu một phần email để bảo vệ privacy
+            email_parts = user.email.split('@')
+            if len(email_parts) == 2:
+                hidden_email = email_parts[0][:4] + '****@' + email_parts[1]
+            else:
+                hidden_email = '****@****'
+                
+            donors_data.append({
+                'rank': i + 1,
+                'email': hidden_email,
+                'total_donated': user.total_donated
+            })
+        
+        return jsonify({
+            'success': True,
+            'top_donors': donors_data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():

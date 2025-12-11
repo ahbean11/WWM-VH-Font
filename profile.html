@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông tin tài khoản - WWM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Thêm thư viện qrcode -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        .qr-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .amount-btn { min-width: 100px; margin-bottom: 10px; }
+        .step-circle { width: 30px; height: 30px; background: #0d6efd; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; }
+        .vip-badge { background: linear-gradient(135deg, #FFD700, #FFA500); color: black; }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container mt-5" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fa-solid fa-user text-primary"></i> Thông tin tài khoản</h3>
+        <a href="/" class="btn btn-outline-secondary">Quay lại trang chủ</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-body">
+                    <h5 class="card-title mb-4"><span class="step-circle">1</span>Thông tin tài khoản</h5>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" value="{{ current_user.username }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="text" class="form-control" value="{{ current_user.email or 'Chưa có email' }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tổng số tiền đã donate</label>
+                        <input type="text" class="form-control" value="{{ "{:,}".format(current_user.total_donated) }}đ" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Lượt dùng thử còn lại</label>
+                        <input type="text" class="form-control" value="{{ current_user.free_trials }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Trạng thái tài khoản</label>
+                        {% if current_user.is_donor %}
+                        <div class="alert alert-success py-2">
+                            <i class="fas fa-crown"></i> <strong class="vip-badge px-2 py-1 rounded">NHÀ TÀI TRỢ VIP</strong><br>
+                            <small class="text-muted">Cảm ơn bạn đã hỗ trợ dự án! Bạn có thể sử dụng công cụ không giới hạn lần.</small>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info py-2">
+                            <i class="fas fa-user"></i> <strong>THÀNH VIÊN THƯỜNG</strong><br>
+                            <small class="text-muted">Bạn có {{ current_user.free_trials }} lần dùng thử miễn phí. Donate từ 10.000đ để trở thành Nhà tài trợ VIP và sử dụng không giới hạn.</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <a href="/logout" class="btn btn-danger">Đăng xuất</a>
+        </div>
+
+        <div class="col-md-6 text-center">
+            <div class="qr-box">
+                <h5 class="mb-3"><span class="step-circle">2</span>Donate để trở thành VIP</h5>
+                
+                <div class="alert alert-warning">
+                    <strong><i class="fas fa-info-circle"></i> Hướng dẫn donate:</strong>
+                    <ol class="text-start small">
+                        <li>Chọn số tiền donate (tối thiểu 10.000đ để trở thành VIP)</li>
+                        <li>Quét mã QR bên dưới</li>
+                        <li>Thanh toán qua ngân hàng</li>
+                        <li>Hệ thống sẽ tự động cập nhật trạng thái VIP cho bạn</li>
+                    </ol>
+                </div>
+                
+                <div id="qrContainer" class="mb-3 position-relative">
+                    <!-- Form tạo đơn hàng mới -->
+                    <div id="orderSection">
+                        <div id="orderForm">
+                            <div class="mb-3">
+                                <label class="form-label">Chọn số tiền nạp</label>
+                                <div class="d-flex flex-wrap justify-content-center gap-2">
+                                    <button class="btn btn-outline-primary amount-btn" onclick="selectAmount(10000)">10.000đ</button>
+                                    <button class="btn btn-outline-primary amount-btn" onclick="selectAmount(20000)">20.000đ</button>
+                                    <button class="btn btn-outline-primary amount-btn" onclick="selectAmount(50000)">50.000đ</button>
+                                    <button class="btn btn-outline-primary amount-btn" onclick="selectAmount(100000)">100.000đ</button>
+                                    <button class="btn btn-outline-primary amount-btn" onclick="selectAmount(200000)">200.000đ</button>
+                                    <button class="btn btn-outline-primary amount-btn" onclick="selectAmount(500000)">500.000đ</button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Hoặc nhập số tiền tùy chọn</label>
+                                <input type="number" id="customAmount" class="form-control" placeholder="Nhập số tiền (tối thiểu 10.000đ)" min="10000">
+                                <button class="btn btn-primary mt-2" onclick="createCustomOrder()">Tạo đơn hàng</button>
+                            </div>
+                            
+                            <button id="createOrderBtn" class="btn btn-success" onclick="createOrder()" disabled>Tạo đơn hàng nạp tiền</button>
+                        </div>
+                        
+                        <div id="orderProcessing" class="d-none text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Đang tạo đơn hàng...</span>
+                            </div>
+                            <p class="mt-2">Đang tạo đơn hàng...</p>
+                        </div>
+                        
+                        <div id="orderResult" class="d-none">
+                            <div class="alert alert-info">
+                                <h5>Đơn hàng đã được tạo</h5>
+                                <p>Mã đơn hàng: <strong id="orderCode"></strong></p>
+                                <p>Số tiền: <strong id="orderAmount"></strong></p>
+                            </div>
+                            
+                            <div class="mb-3 text-center">
+                                <img id="orderQR" src="" alt="QR Code" class="img-fluid border" style="max-width: 200px;">
+                                <p class="mt-2"><small>Mã đơn hàng: <strong id="qrOrderCode"></strong></small></p>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <p><strong>Hướng dẫn thanh toán:</strong></p>
+                                <ol>
+                                    <li>Quét mã QR bên trên</li>
+                                    <li>Chuyển khoản đúng số tiền hiển thị</li>
+                                    <li>Không đóng trang này để hệ thống tự động kiểm tra</li>
+                                </ol>
+                            </div>
+                            
+                            <div class="d-flex justify-content-center">
+                                <button id="checkStatusBtn" class="btn btn-primary" onclick="checkOrderStatus()">Kiểm tra trạng thái</button>
+                                <button class="btn btn-secondary ms-2" onclick="resetOrder()">Tạo đơn hàng mới</button>
+                            </div>
+                            
+                            <div id="statusResult" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-primary fw-bold" id="displayAmount">10.000đ</h4>
+                <p class="text-muted small">Nội dung CK: <strong class="text-danger bg-warning-subtle px-2 py-1 rounded" id="transferContent">WWM {{ current_user.id }} ...</strong></p>
+                <p class="text-muted small">Donate từ 10.000đ để trở thành Nhà tài trợ VIP</p>
+                
+                <div class="mb-3">
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(10000)">10k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(20000)">20k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(50000)">50k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(100000)">100k</button>
+                    <button class="btn btn-outline-primary btn-sm amount-btn" onclick="updateQR(200000)">200k</button>
+                </div>
+                
+                <hr>
+                <div id="statusMessage">
+                    <div class="spinner-grow spinner-grow-sm text-success" role="status"></div> Đang chờ thanh toán...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-body">
+            <h5 class="card-title mb-4"><span class="step-circle">3</span>Lịch sử giao dịch</h5>
+            
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Thời gian</th>
+                        <th>Số tiền</th>
+                        <th>Mô tả</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in current_user.transactions|reverse %}
+                    <tr>
+                        <td>{{ transaction.date_created.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ "{:,}".format(transaction.amount) }}đ</td>
+                        <td>{{ transaction.description }}</td>
+                        <td>
+                            {% if transaction.status == 'success' %}
+                                <span class="badge bg-success">Thành công</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ transaction.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Cấu hình từ Server
+    const BANK_ACC = "{{ bank_acc }}";
+    const USER_ID = "{{ current_user.id }}";
+    const USER_EMAIL = "{{ current_user.email }}";
+    
+    // Hàm tạo hash MD5 đơn giản (chỉ để hiển thị, hash thực tế được tạo ở server)
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString(16);
+    }
+    
+    // Hàm tạo nội dung chuyển khoản với hash email
+    function generateTransferContent(amount) {
+        if (USER_EMAIL) {
+            // Trong thực tế, hash được tạo ở server để bảo mật
+            // Ở đây chỉ là ví dụ hiển thị
+            const emailHash = simpleHash(USER_EMAIL.toLowerCase());
+            return `WWM ${USER_ID} ${emailHash}`;
+        } else {
+            return `WWM ${USER_ID}`;
+        }
+    }
+    
+    // Hàm cập nhật QR khi chọn số tiền khác
+    function updateQR(amount) {
+        if (!amount || amount < 1000) return;
+        
+        // Hiển thị số tiền
+        document.getElementById('displayAmount').innerText = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        
+        // Tạo nội dung chuyển khoản
+        const transferContent = generateTransferContent(amount);
+        document.getElementById('transferContent').innerText = transferContent;
+        
+        // Tạo link QR mới
+        const qrURL = `https://img.vietqr.io/image/VCB-${BANK_ACC}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=WWM`;
+        
+        // Cập nhật ảnh
+        document.getElementById('sepayQR').src = qrURL;
+    }
+    
+    // Mặc định chọn 10k khi vào trang
+    window.onload = function() {
+        updateQR(10000);
+    };
+    
+    // Copy STK
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text);
+        alert("Đã copy: " + text);
+    }
+    
+    // Tự động load QR khi mở tab Donate
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (e) {
+            if (e.target.getAttribute('href') === '#donate') {
+                // Không tự động tạo nữa, để người dùng chọn số tiền và tạo đơn hàng
+            }
+        });
+    });
+
+    // Biến lưu trữ số tiền được chọn và mã đơn hàng
+    let selectedAmount = 0;
+    let currentOrderCode = '';
+
+    // Chọn số tiền
+    function selectAmount(amount) {
+        selectedAmount = amount;
+        document.getElementById('createOrderBtn').disabled = false;
+        
+        // Highlight button được chọn
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        event.target.classList.remove('btn-outline-primary');
+        event.target.classList.add('btn-primary');
+    }
+
+    // Tạo đơn hàng với số tiền tùy chọn
+    function createCustomOrder() {
+        const customAmount = document.getElementById('customAmount').value;
+        if (customAmount && parseInt(customAmount) >= 10000) {
+            selectedAmount = parseInt(customAmount);
+            createOrder();
+        } else {
+            alert('Vui lòng nhập số tiền hợp lệ (tối thiểu 10.000đ)');
+        }
+    }
+
+    // Tạo đơn hàng
+    async function createOrder() {
+        if (selectedAmount <= 0) {
+            alert('Vui lòng chọn số tiền');
+            return;
+        }
+
+        const orderForm = document.getElementById('orderForm');
+        const orderProcessing = document.getElementById('orderProcessing');
+        const orderResult = document.getElementById('orderResult');
+        const orderCodeEl = document.getElementById('orderCode');
+        const orderAmountEl = document.getElementById('orderAmount');
+        const orderQREl = document.getElementById('orderQR');
+        const qrOrderCodeEl = document.getElementById('qrOrderCode');
+
+        try {
+            // Hiển thị trạng thái đang xử lý
+            orderForm.classList.add('d-none');
+            orderProcessing.classList.remove('d-none');
+
+            // Gọi API tạo đơn hàng
+            const response = await fetch('/api/create-deposit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ amount: selectedAmount })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                currentOrderCode = data.order_code;
+                
+                // Hiển thị kết quả
+                orderProcessing.classList.add('d-none');
+                orderResult.classList.remove('d-none');
+                orderCodeEl.textContent = currentOrderCode;
+                orderAmountEl.textContent = selectedAmount.toLocaleString() + 'đ';
+                qrOrderCodeEl.textContent = currentOrderCode;
+                
+                // Mới (Đúng - Tạo link VietQR chuẩn):
+                // Link format: https://img.vietqr.io/image/<BANK>-<ACC>-compact2.jpg?amount=<TIEN>&addInfo=<NOI_DUNG>
+                const qrUrl = `https://img.vietqr.io/image/VietinBank-100872675193-compact2.jpg?amount=${selectedAmount}&addInfo=${currentOrderCode}&accountName=NGUYEN QUANG DUY`;
+                
+                orderQREl.src = qrUrl; // Gán trực tiếp link ảnh VietQR
+                
+                // Bắt đầu kiểm tra trạng thái tự động
+                startAutoCheck();
+            } else {
+                throw new Error(data.message || 'Không thể tạo đơn hàng');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tạo đơn hàng:', error);
+            orderProcessing.classList.add('d-none');
+            orderForm.classList.remove('d-none');
+            alert('Lỗi khi tạo đơn hàng: ' + error.message);
+        }
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    async function checkOrderStatus() {
+        if (!currentOrderCode) return;
+
+        const statusResult = document.getElementById('statusResult');
+        const checkStatusBtn = document.getElementById('checkStatusBtn');
+
+        try {
+            checkStatusBtn.disabled = true;
+            checkStatusBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang kiểm tra...';
+
+            const response = await fetch(`/api/check-status/${currentOrderCode}`);
+            const data = await response.json();
+
+            if (data.success) {
+                let statusHtml = '';
+                if (data.status === 'SUCCESS') {
+                    statusHtml = `
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle"></i> Thanh toán thành công!</h5>
+                            <p>Số tiền ${data.amount.toLocaleString()}đ đã được cộng vào tài khoản.</p>
+                            <p>Nếu bạn đã nạp từ 10.000đ, tài khoản của bạn đã được nâng cấp lên VIP.</p>
+                            <button class="btn btn-primary" onclick="location.reload()">Làm mới trang</button>
+                        </div>
+                    `;
+                    // Dừng kiểm tra tự động
+                    stopAutoCheck();
+                } else if (data.status === 'PENDING') {
+                    statusHtml = `
+                        <div class="alert alert-warning">
+                            <h5><i class="fas fa-clock"></i> Đang chờ thanh toán</h5>
+                            <p>Đơn hàng vẫn đang chờ thanh toán. Vui lòng quét mã QR và chuyển khoản.</p>
+                        </div>
+                    `;
+                } else {
+                    statusHtml = `
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-times-circle"></i> Thất bại</h5>
+                            <p>Đơn hàng đã bị hủy hoặc có lỗi xảy ra.</p>
+                        </div>
+                    `;
+                }
+                
+                statusResult.innerHTML = statusHtml;
+            } else {
+                throw new Error(data.message || 'Không thể kiểm tra trạng thái đơn hàng');
+            }
+        } catch (error) {
+            console.error('Lỗi khi kiểm tra trạng thái:', error);
+            statusResult.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Lỗi</h5>
+                    <p>Lỗi khi kiểm tra trạng thái đơn hàng: ${error.message}</p>
+                </div>
+            `;
+        } finally {
+            checkStatusBtn.disabled = false;
+            checkStatusBtn.innerHTML = 'Kiểm tra trạng thái';
+        }
+    }
+
+    // Biến để lưu interval kiểm tra tự động
+    let autoCheckInterval = null;
+
+    // Bắt đầu kiểm tra tự động
+    function startAutoCheck() {
+        // Kiểm tra mỗi 5 giây
+        autoCheckInterval = setInterval(checkOrderStatus, 5000);
+    }
+
+    // Dừng kiểm tra tự động
+    function stopAutoCheck() {
+        if (autoCheckInterval) {
+            clearInterval(autoCheckInterval);
+            autoCheckInterval = null;
+        }
+    }
+
+    // Reset form tạo đơn hàng
+    function resetOrder() {
+        stopAutoCheck();
+        selectedAmount = 0;
+        currentOrderCode = '';
+        
+        document.getElementById('orderForm').classList.remove('d-none');
+        document.getElementById('orderResult').classList.add('d-none');
+        document.getElementById('statusResult').innerHTML = '';
+        document.getElementById('createOrderBtn').disabled = true;
+        
+        // Reset button styles
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+    }
+
+    // Cleanup khi đóng tab
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopAutoCheck();
+        }
+    });
+</script>
+
+</body>
+</html>

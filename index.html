@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WWM Việt Hóa & Donate</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* Hero Section */
+        .hero { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 60px 0; margin-bottom: 30px; }
+        .hero-donate { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #333; padding: 50px 0; border-radius: 20px; margin-top: 50px;}
+        
+        /* Card Styles */
+        .card-version { transition: transform 0.2s; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .card-version:hover { transform: translateY(-3px); }
+        
+        /* Pricing Table Styles */
+        .pricing-card { border: none; border-radius: 15px; transition: all 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .pricing-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
+        .pricing-header { padding: 30px 20px; border-radius: 15px 15px 0 0; }
+        .popular-badge { position: absolute; top: 0; right: 0; background: #ff4757; color: white; padding: 5px 15px; border-radius: 0 15px 0 15px; font-weight: bold; font-size: 0.9rem; }
+        .feature-list li { padding: 10px 0; border-bottom: 1px dashed #eee; }
+        .feature-list li:last-child { border-bottom: none; }
+        
+        /* Steps */
+        .step-box { background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #0d6efd; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .hidden { display: none !important; }
+        
+        /* Stats */
+        .stat-box { text-align: center; padding: 20px; }
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #d63384; }
+        
+        /* Top Donors Banner */
+        .marquee {
+            overflow: hidden;
+            box-sizing: border-box;
+            position: relative;
+            background: linear-gradient(to right, #ffd700, #ffa500, #ffd700);
+            padding: 10px 0;
+            white-space: nowrap;
+        }
+        
+        .marquee-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 15s linear infinite;
+        }
+        
+        .marquee-content:hover {
+            animation-play-state: paused;
+        }
+        
+        @keyframes marquee {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+        
+        .donor-highlight {
+            display: inline-block;
+            margin: 0 15px;
+            font-weight: bold;
+            color: #8b0000;
+        }
+        
+        .donor-rank {
+            background: #8b0000;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Donors Marquee Banner -->
+    <div id="topDonorsBanner" class="marquee d-none">
+        <div class="marquee-content" id="marqueeContent">
+            <!-- Nội dung sẽ được load bằng JavaScript -->
+        </div>
+    </div>
+
+    <div class="hero text-center">
+        <div class="container">
+            <h1><i class="fa-solid fa-dragon"></i> Where Winds Meet - Việt Hóa - Edit Font</h1>
+            <p class="lead">Trang chuyên tải Việt Hóa Game WWM và Công Cụ Chỉnh Font</p>
+            <div class="mt-4">
+                <a href="#download-section" class="btn btn-light btn-lg me-2"><i class="fa-solid fa-download"></i> Tải Việt Hóa</a>
+                <a href="/tools/font-editor" class="btn btn-warning btn-lg fw-bold shadow">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Công Cụ Chỉnh Font (New)
+                </a>
+                <a href="#donate-section" class="btn btn-outline-light btn-lg"><i class="fa-solid fa-heart"></i>Donate Nuôi Tôi</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" style="max-width: 960px;">
+        
+        <section id="download-section" class="mb-5">
+            <h2 class="text-center mb-4 text-primary"><i class="fa-solid fa-cloud-arrow-down"></i> TẢI BẢN VIỆT HÓA</h2>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nền tảng:</label>
+                            <select id="platformSelect" class="form-select" onchange="filterVersions()">
+                                <option value="Launcher">Client NPH (Launcher)</option>
+                                <option value="Steam">Steam</option>
+                                <option value="Epic">Epic Games</option>
+                            </select>
+                        </div>
+                        <div id="launcherOptions" class="col-md-6">
+                            <label class="form-label fw-bold">Loại Client:</label>
+                            <div class="d-flex gap-3 mt-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="clientType" id="typeStandard" value="Standard" checked onchange="filterVersions()">
+                                    <label class="form-check-label" for="typeStandard">Standard</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="clientType" id="typeLite" value="Lite" onchange="filterVersions()">
+                                    <label class="form-check-label" for="typeLite">Lite</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="versionList">
+                {% for item in versions %}
+                <div class="card card-version item-row" data-platform="{{ item.platform|trim }}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="card-title text-primary"><i class="fa-solid fa-box-open"></i> {{ item.version_name }}</h5>
+                                <p class="card-text text-muted small"><i class="fa-regular fa-lightbulb"></i> {{ item.note or 'Chưa có ghi chú.' }}</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <!-- Kiểm tra trạng thái đăng nhập -->
+                                {% if current_user.is_authenticated %}
+                                    <!-- Người dùng đã đăng nhập -->
+                                    <!-- Hiển thị link_Normal nếu có -->
+                                    {% if 'link_normal' in item and item.link_normal and item.link_normal.lower().startswith('http') %}
+                                        <a href="{{ item.link_normal }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100 mb-2">
+                                            <i class="fa-solid fa-download"></i> LINK THƯỜNG
+                                        </a>
+                                    {% elif 'link' in item and item.link and item.link.lower().startswith('http') %}
+                                        <!-- Fallback cho cột link cũ nếu có -->
+                                        <a href="{{ item.link }}" target="_blank" class="btn btn-primary btn-download shadow-sm w-100 mb-2">
+                                            <i class="fa-solid fa-download"></i> LINK THƯỜNG
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary w-100 disabled mb-2">
+                                            <i class="fa-solid fa-ban"></i> {% if 'link_normal' in item %}{{ item.link_normal or 'Đang cập nhật' }}{% else %}Đang cập nhật{% endif %}
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <!-- Hiển thị link_VIP nếu người dùng là VIP (đã donate) -->
+                                    {% if current_user.is_donor %}
+                                        {% if 'link_vip' in item and item.link_vip and item.link_vip.lower().startswith('http') %}
+                                            <a href="{{ item.link_vip }}" target="_blank" class="btn btn-warning btn-download shadow-sm w-100">
+                                                <i class="fa-solid fa-crown"></i> LINK VIP
+                                            </a>
+                                        {% endif %}
+                                    {% else %}
+                                        <!-- Người dùng thường không thấy link VIP -->
+                                        <button class="btn btn-outline-warning w-100 disabled" disabled>
+                                            <i class="fa-solid fa-lock"></i> Dành cho VIP
+                                        </button>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- Người dùng chưa đăng nhập -->
+                                    <a href="/login" class="btn btn-info w-100 mb-2">
+                                        <i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP ĐỂ XEM LINK
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="noDataAlert" class="alert alert-warning text-center hidden">Hiện chưa có link tải cho phiên bản này.</div>
+            
+            <div class="accordion mt-4" id="accordionHelp">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHelp">
+                            <i class="fa-solid fa-book me-2"></i> Hướng dẫn cài đặt nhanh
+                        </button>
+                    </h2>
+                    <div id="collapseHelp" class="accordion-collapse collapse" data-bs-parent="#accordionHelp">
+                        <div class="accordion-body">
+                            <ol>
+                                <li>Tải file ZIP tương ứng phiên bản game.</li>
+                                <li>Giải nén bằng WinRAR.</li>
+                                <li>Copy thư mục <code>wwm_standard</code> (hoặc lite) vào thư mục cài game.</li>
+                                <li>Chọn <strong>Ghi đè (Replace)</strong> khi được hỏi.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-5">
+
+        <section id="donate-section">
+            <div class="hero-donate text-center mb-5">
+                <div class="container">
+                    <h1 class="display-4 fw-bold mb-3">🍜 NUÔI TÔI</h1>
+                    <p class="lead mb-4">Dự án thiện nguyện cho một cuộc sống tốt đẹp hơn (của tôi)</p>
+                    
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-8">
+                            <p>Mỗi ngày trôi qua, tôi vẫn đang phải vật lộn với chi phí sinh hoạt, trà sữa, Netflix, và những bữa ăn cơm văn phòng đắt đỏ. Hãy chung tay cùng tôi để tôi có thể sống một cuộc sống xứng đáng hơn!</p>
+                        </div>
+                    </div>
+
+                    <div class="row justify-content-center g-4">
+                        <div class="col-md-4">
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <div class="stat-number">1</div>
+                                <div class="text-muted">Người được nuôi</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <div class="stat-number">0</div>
+                                <div class="text-muted">Nhà hảo tâm</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <div class="stat-number">69</div>
+                                <div class="text-muted">Tỷ đồng mục tiêu</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-5 align-items-center">
+                <div class="col-md-6">
+                    <img src="https://media.giphy.com/media/l0Ex6kAKAoFRsFh6M/giphy.gif" class="img-fluid rounded shadow" alt="Funny Money Gif">
+                </div>
+                <div class="col-md-6">
+                    <h3 class="text-primary fw-bold">Về tôi</h3>
+                    <p class="fst-italic text-muted">Câu chuyện của một người trẻ đang cần sự hỗ trợ từ cộng đồng</p>
+                    <p>Xin chào các <strong>anh chị nuôi</strong> thân mến! Tôi là một người trẻ đầy tham vọng, đang sống tại thành phố với chi phí sinh hoạt ngày càng cao ngất ngưởng.</p>
+                    <p>Từ năm 2025, tôi đã nhận ra rằng: <strong>Tại sao phải tự nuôi bản thân khi có thể để người khác nuôi?</strong> Đây là một mô hình thiện nguyện hoàn toàn mới.</p>
+                    <p>Với chỉ <strong>1,45 triệu đồng/năm</strong>, các anh chị sẽ giúp tôi có đủ tiền cho trà sữa, cơm văn phòng, Netflix. Lưu ý: Chi phí vận hành (1 tỷ đồng/năm) sẽ được lấy từ lãi tiết kiệm, không trích từ khoản đóng góp của các anh chị đâu nhé! 😊</p>
+                </div>
+            </div>
+
+            <h2 class="text-center mb-5 fw-bold">🎁 Gói ủng hộ</h2>
+            <div class="row row-cols-1 row-cols-md-3 mb-3 text-center">
+                
+                <div class="col">
+                    <div class="card mb-4 rounded-3 shadow-sm pricing-card h-100">
+                        <div class="card-header py-3 bg-light border-0 pricing-header">
+                            <h4 class="my-0 fw-normal">Gói Cơ Bản</h4>
+                        </div>
+                        <div class="card-body">
+                            <h1 class="card-title pricing-card-title">450k<small class="text-muted fw-light">/3 tháng</small></h1>
+                            <ul class="list-unstyled mt-3 mb-4 feature-list text-start ps-4">
+                                <li>🥤 Trà sữa: <strong>45 ly</strong></li>
+                                <li>🍱 Cơm văn phòng: <strong>60 bữa</strong></li>
+                                <li>⛽ Xăng xe: <span class="text-muted">Không</span></li>
+                                <li>📺 Netflix: <strong>Dùng chung</strong></li>
+                                <li>📸 Ảnh cập nhật: Có thể có</li>
+                            </ul>
+                            <button type="button" class="w-100 btn btn-lg btn-outline-primary" onclick="showDonateInfo('450.000đ')">Chọn gói này</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="card mb-4 rounded-3 shadow pricing-card border-primary h-100 position-relative">
+                        <div class="popular-badge">Phổ biến nhất</div>
+                        <div class="card-header py-3 bg-primary text-white border-0 pricing-header">
+                            <h4 class="my-0 fw-normal">Gói Tiêu Chuẩn</h4>
+                        </div>
+                        <div class="card-body">
+                            <h1 class="card-title pricing-card-title">1.45tr<small class="text-muted fw-light">/năm</small></h1>
+                            <ul class="list-unstyled mt-3 mb-4 feature-list text-start ps-4">
+                                <li>🥤 Trà sữa: <strong>Không giới hạn</strong></li>
+                                <li>🍱 Cơm văn phòng: <strong>365 bữa</strong></li>
+                                <li>⛽ Xăng xe: <strong>5 triệu/năm</strong></li>
+                                <li>📺 Netflix Premium: <strong>Có</strong></li>
+                                <li>📸 Ảnh cập nhật: Mỗi tháng</li>
+                                <li>🔑 Mã Nuôi Tôi (NT): <strong>Độc quyền*</strong></li>
+                            </ul>
+                            <button type="button" class="w-100 btn btn-lg btn-primary" onclick="showDonateInfo('1.450.000đ')">Chọn gói này</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="card mb-4 rounded-3 shadow-sm pricing-card h-100">
+                        <div class="card-header py-3 bg-dark text-white border-0 pricing-header">
+                            <h4 class="my-0 fw-normal">Gói VIP 👑</h4>
+                        </div>
+                        <div class="card-body">
+                            <h1 class="card-title pricing-card-title">5tr<small class="text-muted fw-light">/năm</small></h1>
+                            <ul class="list-unstyled mt-3 mb-4 feature-list text-start ps-4">
+                                <li>✅ <strong>Tất cả gói Tiêu Chuẩn</strong></li>
+                                <li>☕ Cafe Starbucks: <strong>Mỗi ngày</strong></li>
+                                <li>🍽️ Ăn nhà hàng: <strong>2 lần/tháng</strong></li>
+                                <li>✈️ Du lịch: <strong>1 chuyến/năm</strong></li>
+                                <li>⭐ Tên trên website: <strong>Có thể</strong></li>
+                                <li>📹 Video call: Mỗi quý</li>
+                            </ul>
+                            <button type="button" class="w-100 btn btn-lg btn-outline-dark" onclick="showDonateInfo('5.000.000đ')">Chọn gói này</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-warning text-center shadow-sm mt-4" role="alert">
+                <h4 class="alert-heading"><i class="fa-solid fa-lock"></i> Báo cáo tài chính minh bạch</h4>
+                <p>Chúng tôi cam kết công khai 100% thu chi (sau 15 ngày đóng băng tài khoản để kiểm tra).</p>
+                <hr>
+                <p class="mb-0 small"><strong>🔒 Thông báo quan trọng:</strong> Để đảm bảo tính minh bạch và chính xác, tài khoản hiện đang được đóng băng trong 15 ngày để thống kê thu-chi. Chúng tôi đang làm việc với bên thứ ba độc lập (có thể là bạn tôi) để kiểm toán. Cảm ơn sự kiên nhẫn của quý vị!</p>
+            </div>
+
+            <div class="modal fade" id="donateModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title">💖 Thông tin chuyển khoản</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <p>Cảm ơn bạn đã chọn gói: <strong id="selectedPackagePrice" class="text-danger fs-4"></strong></p>
+                            <div class="p-3 bg-light rounded border mb-3">
+                                <p class="mb-1 fw-bold">Ngân hàng: Vietinbank</p>
+                                <p class="mb-1 fs-5 text-primary copy-text" role="button" onclick="copyToClipboard('100872675193')">STK: 100872675193 <i class="fa-regular fa-copy"></i></p>
+                                <p class="mb-0">Tên: NGUYEN QUANG DUY</p>
+                                <p class="mt-2 small text-muted">Nội dung: NUOITOI + Tên bạn</p>
+                            </div>
+                            <p class="small text-muted">Vui lòng chụp màn hình sau khi chuyển khoản (nếu bạn muốn khoe).</p>
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </div>
+
+    <footer class="text-center py-4 text-muted bg-white border-top mt-5">
+        <small>© 2025 WWM Patcher & Project "Nuôi Tôi". Admin liên tục cập nhật link mới. F5 để làm mới danh sách.</small>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Logic lọc game (Giữ nguyên)
+        function filterVersions() {
+            const platform = document.getElementById('platformSelect').value;
+            let targetKey = "";
+            if (platform === "Launcher") {
+                document.getElementById('launcherOptions').classList.remove('hidden');
+                const clientType = document.querySelector('input[name="clientType"]:checked').value;
+                targetKey = clientType;
+            } else {
+                document.getElementById('launcherOptions').classList.add('hidden');
+                targetKey = platform;
+            }
+            const items = document.querySelectorAll('.item-row');
+            let hasItem = false;
+            items.forEach(item => {
+                const itemPlatform = item.getAttribute('data-platform');
+                if (itemPlatform.toLowerCase() === targetKey.toLowerCase()) {
+                    item.classList.remove('hidden');
+                    hasItem = true;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            const alertBox = document.getElementById('noDataAlert');
+            alertBox.classList.toggle('hidden', hasItem);
+        }
+        
+        // Copy STK
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert("Đã copy số tài khoản: " + text);
+        }
+        
+        // Load top donors và hiển thị trong banner
+        async function loadTopDonors() {
+            try {
+                const response = await fetch('/api/top-donors');
+                const data = await response.json();
+                
+                if (data.success && data.top_donors.length > 0) {
+                    const marqueeContent = document.getElementById('marqueeContent');
+                    const banner = document.getElementById('topDonorsBanner');
+                    
+                    // Tạo nội dung cho banner
+                    let content = '';
+                    data.top_donors.forEach(donor => {
+                        content += `
+                            <span class="donor-highlight">
+                                <span class="donor-rank">Top ${donor.rank}</span>
+                                ${donor.email} - ${donor.total_donated.toLocaleString()}đ
+                            </span>
+                        `;
+                    });
+                    
+                    // Lặp lại nội dung để tạo hiệu ứng cuộn liên tục
+                    marqueeContent.innerHTML = content + content;
+                    banner.classList.remove('d-none');
+                }
+            } catch (error) {
+                console.error('Lỗi khi load top donors:', error);
+            }
+        }
+        
+        // Modal Donate
+        function showDonateInfo(price) {
+            document.getElementById('selectedPackagePrice').innerText = price;
+            var myModal = new bootstrap.Modal(document.getElementById('donateModal'));
+            myModal.show();
+        }
+        
+        // Chạy lọc lần đầu và load top donors
+        window.onload = function() {
+            filterVersions();
+            loadTopDonors();
+        };
+    </script>
+</body>
+</html>

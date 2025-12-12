@@ -200,7 +200,9 @@ def process_font_logic(font_file_path, output_path):
         return False
 
 # --- ROUTES CHÍNH ---
-
+@app.route('/tutorial')
+def tutorial():
+    return render_template('tutorial.html')
 @app.route('/')
 def home():
     versions = get_data()

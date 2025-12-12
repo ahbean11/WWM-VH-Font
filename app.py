@@ -244,7 +244,6 @@ def google_callback():
                 user = User(
                     username=user_info['email'], 
                     email=user_info['email'],  # Lưu email
-                    password=bcrypt.generate_password_hash(str(uuid.uuid4())).decode('utf-8'),  # Random password
                     free_trials=1  # Regular users get 1 free trial
                 )
                 db.session.add(user)

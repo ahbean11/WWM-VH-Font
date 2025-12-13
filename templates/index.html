@@ -33,47 +33,6 @@
         .stat-box { text-align: center; padding: 20px; }
         .stat-number { font-size: 2.5rem; font-weight: bold; color: #d63384; }
         
-        /* Top Donors Banner */
-        .marquee {
-            overflow: hidden;
-            box-sizing: border-box;
-            position: relative;
-            background: linear-gradient(to right, #ffd700, #ffa500, #ffd700);
-            padding: 10px 0;
-            white-space: nowrap;
-        }
-        
-        .marquee-content {
-            display: inline-block;
-            padding-left: 100%;
-            animation: marquee 15s linear infinite;
-        }
-        
-        .marquee-content:hover {
-            animation-play-state: paused;
-        }
-        
-        @keyframes marquee {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(-100%, 0); }
-        }
-        
-        .donor-highlight {
-            display: inline-block;
-            margin: 0 15px;
-            font-weight: bold;
-            color: #8b0000;
-        }
-        
-        .donor-rank {
-            background: #8b0000;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-right: 5px;
-        }
-        /* --- Thêm vào phần <style> trong index.html --- */
-
         /* Container chứa các element bay lên, phủ lên toàn màn hình nhưng không chặn click */
         #floating-container {
             position: fixed;
@@ -144,11 +103,7 @@
 </head>
 <body>
     <div id="floating-container"></div>
-    <div id="topDonorsBanner" class="marquee d-none">
-        <div class="marquee-content" id="marqueeContent">
-            </div>
-    </div>
-
+    
     <div class="hero text-center">
         <div class="container">
             <h1><i class="fa-solid fa-dragon"></i> Where Winds Meet - Việt Hóa - Edit Font</h1>
@@ -419,7 +374,6 @@
                                 <p class="mb-1 fs-5 text-primary copy-text" role="button" onclick="copyToClipboard('100872675193')">
                                     STK: 100872675193 <i class="fa-regular fa-copy"></i>
                                 </p>
-                                <p class="mb-0">Tên: NGUYEN QUANG DUY</p>
                             </div>
                             
                             <div class="alert alert-info py-2 small">
@@ -474,36 +428,6 @@
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
             alert("Đã copy số tài khoản: " + text);
-        }
-        
-        // Load top donors và hiển thị trong banner
-        async function loadTopDonors() {
-            try {
-                const response = await fetch('/api/top-donors');
-                const data = await response.json();
-                
-                if (data.success && data.top_donors.length > 0) {
-                    const marqueeContent = document.getElementById('marqueeContent');
-                    const banner = document.getElementById('topDonorsBanner');
-                    
-                    // Tạo nội dung cho banner
-                    let content = '';
-                    data.top_donors.forEach(donor => {
-                        content += `
-                            <span class="donor-highlight">
-                                <span class="donor-rank">Top ${donor.rank}</span>
-                                ${donor.email} - ${donor.total_donated.toLocaleString()}đ
-                            </span>
-                        `;
-                    });
-                    
-                    // Lặp lại nội dung để tạo hiệu ứng cuộn liên tục
-                    marqueeContent.innerHTML = content + content;
-                    banner.classList.remove('d-none');
-                }
-            } catch (error) {
-                console.error('Lỗi khi load top donors:', error);
-            }
         }
         
         // --- LOGIC VIETQR MỚI ---
@@ -576,7 +500,6 @@
         // Chạy lọc lần đầu và load top donors
         window.onload = function() {
             filterVersions();
-            loadTopDonors();
         };
         /* --- Thêm vào phần <script> cuối index.html --- */
 

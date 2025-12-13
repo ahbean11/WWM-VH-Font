@@ -20,11 +20,24 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
+from flask_mail import Mail, Message
+from threading import Thread # Dùng để gửi mail chạy ngầm
 
 # Load biến môi trường
 load_dotenv()
 
 app = Flask(__name__)
+
+# --- CẤU HÌNH EMAIL (GMAIL) ---
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+# Lấy email và mật khẩu ứng dụng từ biến môi trường để bảo mật
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') 
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = ('WWM Support', os.environ.get('MAIL_USERNAME'))
+
+mail = Mail(app)
 
 # --- CẤU HÌNH BẢO MẬT & DATABASE ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key_khong_an_toan_123')
@@ -415,8 +428,12 @@ def handle_sepay_webhook():
                     transaction_id=sepay_trans_id
                 )
                 db.session.add(donation)
+                db.session.commit() # <--- Commit xong mới gửi mail để chắc chắn DB đã lưu
                 
-                db.session.commit()
+                # --- THÊM DÒNG NÀY ĐỂ GỬI MAIL ---
+                if user.email:
+                    send_thank_you_email(user.email, user.username, real_amount, order_code)
+                # ---------------------------------
                 
                 return jsonify({"success": True, "message": f"Đã cộng tiền cho user {user.id}"}), 200
             else:
@@ -472,6 +489,10 @@ def process_old_donation_logic(data):
                             user.is_donor = True
                             
                         db.session.commit()
+                        # --- GỬI EMAIL CẢM ƠN ---
+                        if user.email:
+                            send_thank_you_email(user.email, user.username, int(amount), "OLD_DONATION")
+                        # ------------------------
                         return jsonify({'success': True, 'msg': 'User donation processed'}), 200
                     else:
                         return jsonify({'success': False, 'msg': 'Transaction already processed'}), 400
@@ -509,8 +530,12 @@ def process_old_donation_logic(data):
                     # Set donor status nếu donate từ 10.000đ trở lên
                     if matched_user.total_donated >= 10000:
                         matched_user.is_donor = True
-                    
+                        
                     db.session.commit()
+                    # --- GỬI EMAIL CẢM ƠN ---
+                    if matched_user.email:
+                        send_thank_you_email(matched_user.email, matched_user.username, int(amount), "OLD_DONATION")
+                    # ------------------------
                     return jsonify({'success': True, 'msg': 'Existing user new donation processed'}), 200
                 else:
                     return jsonify({'success': False, 'msg': 'Transaction already processed'}), 400
@@ -768,6 +793,56 @@ def mask_email(email):
     if len(name) > 3:
         return f"{name[:3]}***@{domain}"
     return f"***@{domain}"
+
+# --- HÀM GỬI EMAIL KHÔNG ĐỒNG BỘ (ASYNC) ---
+def send_async_email(app, msg):
+    with app.app_context():
+        try:
+            mail.send(msg)
+            print("✅ Email cảm ơn đã được gửi!")
+        except Exception as e:
+            print(f"❌ Lỗi gửi email: {e}")
+
+def send_thank_you_email(user_email, username, amount, order_code):
+    """Gửi email cảm ơn sau khi donate thành công"""
+    if not user_email:
+        return
+
+    subject = f"💖 Cảm ơn bạn đã ủng hộ! (Đơn: {order_code})"
+    
+    # Nội dung HTML đẹp mắt
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); padding: 20px; text-align: center; color: white;">
+            <h2 style="margin: 0;">CẢM ƠN BẠN RẤT NHIỀU!</h2>
+        </div>
+        <div style="padding: 20px; background-color: #ffffff;">
+            <p>Xin chào <strong>{username}</strong>,</p>
+            <p>Chúng tôi đã nhận được khoản ủng hộ của bạn. Sự đóng góp của bạn là động lực rất lớn để Duy và team tiếp tục duy trì Server và phát triển các bản Việt Hóa chất lượng hơn.</p>
+            
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 5px solid #28a745;">
+                <p style="margin: 5px 0;"><strong>Mã đơn hàng:</strong> {order_code}</p>
+                <p style="margin: 5px 0;"><strong>Số tiền:</strong> { "{:,}".format(int(amount)) }đ</p>
+                <p style="margin: 5px 0;"><strong>Trạng thái:</strong> <span style="color: green; font-weight: bold;">Thành công</span></p>
+            </div>
+
+            <p>Tài khoản của bạn đã được cập nhật quyền lợi VIP. Hãy truy cập website để sử dụng các tính năng ngay nhé!</p>
+            <p>Hãy truy cập thường xuyên để nhận những bản việt hoá game WWM mới nhất nhé.</p>
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="https://wwm-vh-font.onrender.com/profile" style="background-color: #ffc107; color: #000; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 5px;">Kiểm tra tài khoản</a>
+            </div>
+        </div>
+        <div style="background-color: #f1f1f1; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+             Email này được gửi tự động.
+        </div>
+    </div>
+    """
+
+    msg = Message(subject, recipients=[user_email], html=html_content)
+    
+    # Dùng Thread để không làm đơn hàng bị xử lý chậm
+    Thread(target=send_async_email, args=(app, msg)).start()
+
 def create_tables():
     with app.app_context():
         db.create_all()

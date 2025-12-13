@@ -7,10 +7,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
         /* Hero Section */
-        .hero { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 60px 0; margin-bottom: 30px; position: relative; z-index: 2;}
+        .hero { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 60px 0; margin-bottom: 30px; }
         .hero-donate { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #333; padding: 50px 0; border-radius: 20px; margin-top: 50px;}
         
         /* Card Styles */
@@ -33,107 +33,121 @@
         .stat-box { text-align: center; padding: 20px; }
         .stat-number { font-size: 2.5rem; font-weight: bold; color: #d63384; }
         
-        /* --- BALLOON STYLES (MỚI) --- */
-        .balloon-container {
-            position: fixed;
-            bottom: -200px;
-            width: 100%;
-            height: 100vh;
-            pointer-events: none; /* Để không che nút bấm */
-            z-index: 9999;
-        }
-
-        .balloon-wrapper {
-            position: absolute;
-            bottom: -200px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            animation: floatUp 15s linear infinite;
-            cursor: pointer;
-            pointer-events: auto; /* Cho phép hover */
-            transition: transform 0.3s;
-        }
-        
-        .balloon-wrapper:hover {
-            z-index: 10000;
-            animation-play-state: paused; /* Dừng bay khi hover */
-        }
-
-        .balloon {
-            width: 80px;
-            height: 100px;
-            background: #ff4757;
-            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
-            box-shadow: inset -5px -5px 10px rgba(0,0,0,0.1), 2px 2px 10px rgba(0,0,0,0.1);
+        /* Top Donors Banner */
+        .marquee {
+            overflow: hidden;
+            box-sizing: border-box;
             position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
+            background: linear-gradient(to right, #ffd700, #ffa500, #ffd700);
+            padding: 10px 0;
+            white-space: nowrap;
+        }
+        
+        .marquee-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 15s linear infinite;
+        }
+        
+        .marquee-content:hover {
+            animation-play-state: paused;
+        }
+        
+        @keyframes marquee {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+        
+        .donor-highlight {
+            display: inline-block;
+            margin: 0 15px;
             font-weight: bold;
-            text-align: center;
-            font-size: 0.8rem;
+            color: #8b0000;
+        }
+        
+        .donor-rank {
+            background: #8b0000;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-right: 5px;
+        }
+        /* --- Thêm vào phần <style> trong index.html --- */
+
+        /* Container chứa các element bay lên, phủ lên toàn màn hình nhưng không chặn click */
+        #floating-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* CỰC QUAN TRỌNG: Để click xuyên qua */
+            z-index: 1000;
+            overflow: hidden;
         }
 
-        .balloon::before {
-            content: '';
+        /* Class chung cho các bóng bay text */
+        .floater {
             position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-bottom: 10px solid #ff4757; /* Màu tam giác đuôi */
-            border-radius: 50%;
+            bottom: -100px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+            opacity: 0.9;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            animation: floatUp 15s linear forwards; /* Thời gian bay lên 15s */
+            will-change: transform, opacity;
         }
 
-        .balloon-string {
-            width: 2px;
-            height: 80px;
-            background: rgba(0,0,0,0.2);
-            margin-top: -5px;
+        /* Style riêng cho Top Donor (Màu Vàng/Cam sang trọng) */
+        .floater-top {
+            background: linear-gradient(45deg, #FFD700, #FF8C00);
+            border: 1px solid #fff;
         }
 
-        .balloon-tag {
-            background: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            font-size: 0.75rem;
-            color: #333;
-            text-align: center;
-            border: 1px solid #eee;
-            margin-top: -60px; /* Kéo tag lên giữa dây */
-            transform: rotate(-5deg);
-            max-width: 120px;
+        /* Style riêng cho New Donor (Màu Xanh nhẹ nhàng, tươi mới) */
+        .floater-new {
+            background: linear-gradient(45deg, #00c6ff, #0072ff);
+            border: 1px solid #fff;
         }
 
-        .balloon-tag strong { display: block; color: #d63384; }
-
-        /* Animation Keyframes */
+        /* Hiệu ứng keyframe bay lên và lắc lư nhẹ */
         @keyframes floatUp {
-            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-            10% { opacity: 1; }
-            50% { transform: translateY(-50vh) rotate(5deg); }
-            100% { transform: translateY(-120vh) rotate(-5deg); opacity: 0.8; }
+            0% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            25% {
+                transform: translateY(-25vh) translateX(15px);
+            }
+            50% {
+                transform: translateY(-50vh) translateX(-15px);
+            }
+            75% {
+                transform: translateY(-75vh) translateX(10px);
+            }
+            90% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(-110vh) translateX(0);
+                opacity: 0;
+            }
         }
-
-        /* Màu sắc riêng cho từng loại */
-        .balloon.top-rank { background: radial-gradient(circle at 30% 30%, #ffd700, #ffa500); } /* Vàng */
-        .balloon.top-rank::before { border-bottom-color: #ffa500; }
-        
-        .balloon.new-rank { background: radial-gradient(circle at 30% 30%, #00ff88, #00b894); } /* Xanh lá */
-        .balloon.new-rank::before { border-bottom-color: #00b894; }
-        
-        .balloon.new-rank-2 { background: radial-gradient(circle at 30% 30%, #74b9ff, #0984e3); } /* Xanh dương */
-        .balloon.new-rank-2::before { border-bottom-color: #0984e3; }
-
     </style>
 </head>
 <body>
-    
-    <div id="balloonContainer" class="balloon-container"></div>
+    <div id="floating-container"></div>
+    <div id="topDonorsBanner" class="marquee d-none">
+        <div class="marquee-content" id="marqueeContent">
+            </div>
+    </div>
 
     <div class="hero text-center">
         <div class="container">
@@ -429,7 +443,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Logic lọc game
+        // Logic lọc game (Giữ nguyên)
         function filterVersions() {
             const platform = document.getElementById('platformSelect').value;
             let targetKey = "";
@@ -456,104 +470,91 @@
             alertBox.classList.toggle('hidden', hasItem);
         }
         
+        // Copy STK
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
             alert("Đã copy số tài khoản: " + text);
         }
         
-        // --- LOGIC BÓNG BAY DONATE (MỚI) ---
+        // Load top donors và hiển thị trong banner
         async function loadTopDonors() {
             try {
                 const response = await fetch('/api/top-donors');
                 const data = await response.json();
                 
-                // Giả lập dữ liệu nếu API chưa trả về newest_donors
-                // Nếu API của bạn đã có newest_donors thì có thể xóa dòng này
-                if (!data.newest_donors && data.top_donors) {
-                    data.newest_donors = data.top_donors.slice().reverse().slice(0, 3);
-                }
-
-                const container = document.getElementById('balloonContainer');
-                container.innerHTML = ''; // Xóa cũ
-
-                // Helper tạo bóng bay
-                const createBalloon = (donor, type, index) => {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'balloon-wrapper';
+                if (data.success && data.top_donors.length > 0) {
+                    const marqueeContent = document.getElementById('marqueeContent');
+                    const banner = document.getElementById('topDonorsBanner');
                     
-                    // Style riêng: Top (Trái), New (Phải)
-                    if (type === 'top') {
-                        wrapper.style.left = `${5 + (index * 5)}%`; // Vị trí trái: 5%, 10%, 15%
-                        wrapper.style.animationDelay = `${index * 2}s`; // Delay khác nhau
-                        wrapper.style.animationDuration = `${15 + Math.random() * 5}s`; // Tốc độ ngẫu nhiên
-                    } else {
-                        wrapper.style.right = `${5 + (index * 5)}%`; // Vị trí phải
-                        wrapper.style.animationDelay = `${index * 2 + 1}s`;
-                        wrapper.style.animationDuration = `${12 + Math.random() * 5}s`;
-                    }
-
-                    // Format tiền
-                    const amount = donor.total_donated ? donor.total_donated.toLocaleString() + 'đ' : '???';
-                    const name = donor.email || 'Ẩn danh';
-                    const rankLabel = type === 'top' ? `Top ${donor.rank}` : `Mới nhất`;
-                    const balloonClass = type === 'top' ? 'top-rank' : (index % 2 == 0 ? 'new-rank' : 'new-rank-2');
-
-                    wrapper.innerHTML = `
-                        <div class="balloon ${balloonClass}">
-                            ${type === 'top' ? '<i class="fa-solid fa-crown"></i>' : '<i class="fa-solid fa-gift"></i>'}
-                        </div>
-                        <div class="balloon-string"></div>
-                        <div class="balloon-tag">
-                            <small class="text-muted">${rankLabel}</small>
-                            <strong>${name}</strong>
-                            <div class="text-danger fw-bold">${amount}</div>
-                        </div>
-                    `;
+                    // Tạo nội dung cho banner
+                    let content = '';
+                    data.top_donors.forEach(donor => {
+                        content += `
+                            <span class="donor-highlight">
+                                <span class="donor-rank">Top ${donor.rank}</span>
+                                ${donor.email} - ${donor.total_donated.toLocaleString()}đ
+                            </span>
+                        `;
+                    });
                     
-                    container.appendChild(wrapper);
-                };
-
-                // Render Top 3 Donors (Bên trái)
-                if (data.top_donors) {
-                    data.top_donors.slice(0, 3).forEach((d, i) => createBalloon(d, 'top', i));
+                    // Lặp lại nội dung để tạo hiệu ứng cuộn liên tục
+                    marqueeContent.innerHTML = content + content;
+                    banner.classList.remove('d-none');
                 }
-
-                // Render Top 3 Newest Donors (Bên phải)
-                if (data.newest_donors) {
-                    data.newest_donors.slice(0, 3).forEach((d, i) => createBalloon(d, 'new', i));
-                }
-
             } catch (error) {
-                console.error('Lỗi khi load donors:', error);
+                console.error('Lỗi khi load top donors:', error);
             }
         }
         
-        // --- LOGIC VIETQR ---
+        // --- LOGIC VIETQR MỚI ---
         const BANK_ID = "Vietinbank";
         const ACCOUNT_NO = "100872675193";
         const TEMPLATE = "compact2";
+        
+        // Biến lưu số tiền hiện tại đang chọn
         let currentAmount = 0;
 
+        // Hàm hiển thị Modal và tạo QR ban đầu
         function showDonateInfo(amount, displayString) {
+            // 1. Lưu số tiền và cập nhật giao diện text
             currentAmount = amount;
             document.getElementById('selectedPackagePrice').innerText = displayString;
+            
+            // 2. Reset ô nhập tên
             document.getElementById('donorNameInput').value = "";
+            
+            // 3. Tạo mã QR ngay lập tức (với nội dung mặc định)
             updateVietQR();
+
+            // 4. Hiển thị Modal
             var myModal = new bootstrap.Modal(document.getElementById('donateModal'));
             myModal.show();
         }
 
+        // Hàm cập nhật ảnh QR khi người dùng gõ tên
         function updateVietQR() {
+            // Lấy tên người dùng nhập (nếu trống thì để rỗng)
             const name = document.getElementById('donorNameInput').value.trim();
+            
+            // Tạo nội dung chuyển khoản: "NUOI EM" + Tên
+            // Lưu ý: Cần xử lý tiếng Việt không dấu hoặc URL Encode để tránh lỗi QR
             let description = "NUOI EM";
             if (name) {
                 description += " " + removeVietnameseTones(name).toUpperCase();
             }
+
+            // Cập nhật text xem trước
             document.getElementById('previewContent').innerText = "Nội dung CK: " + description;
+
+            // Tạo Link API VietQR
+            // Cấu trúc: https://img.vietqr.io/image/<BANK>-<ACC>-<TEMPLATE>.png?amount=<AMT>&addInfo=<MSG>
             const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-${TEMPLATE}.png?amount=${currentAmount}&addInfo=${encodeURIComponent(description)}`;
+            
+            // Gán vào thẻ ảnh
             document.getElementById('vietqrImage').src = qrUrl;
         }
 
+        // Hàm phụ trợ: Chuyển tiếng Việt có dấu thành không dấu (để ngân hàng dễ đọc)
         function removeVietnameseTones(str) {
             str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a"); 
             str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e"); 
@@ -572,10 +573,107 @@
             return str;
         }
         
+        // Chạy lọc lần đầu và load top donors
         window.onload = function() {
             filterVersions();
             loadTopDonors();
         };
+        /* --- Thêm vào phần <script> cuối index.html --- */
+
+        // Hàm tạo element bay lên
+        function spawnFloater(text, type) {
+            const container = document.getElementById('floating-container');
+            const el = document.createElement('div');
+            
+            el.classList.add('floater');
+            el.classList.add(type === 'top' ? 'floater-top' : 'floater-new');
+            
+            // Nội dung icon + text
+            const icon = type === 'top' ? '<i class="fa-solid fa-crown"></i>' : '<i class="fa-solid fa-heart"></i>';
+            el.innerHTML = `${icon} ${text}`;
+            
+            // Random vị trí xuất hiện theo chiều ngang (từ 5% đến 90% màn hình)
+            const randomLeft = Math.floor(Math.random() * 85) + 5;
+            el.style.left = `${randomLeft}%`;
+            
+            // Random tốc độ bay một chút cho tự nhiên (12s - 18s)
+            const randomDuration = Math.floor(Math.random() * 6) + 12;
+            el.style.animationDuration = `${randomDuration}s`;
+
+            // Thêm vào DOM
+            container.appendChild(el);
+
+            // Xóa element sau khi animation kết thúc để tránh nặng máy
+            setTimeout(() => {
+                el.remove();
+            }, randomDuration * 1000);
+        }
+
+        // Hàm chính quản lý việc thả bóng bay
+        async function startFloatingEffect() {
+            try {
+                const response = await fetch('/api/donor-activity');
+                const data = await response.json();
+                
+                if (!data.success) return;
+
+                const queue = [];
+
+                // Thêm Top Donors vào hàng đợi
+                data.top.forEach(user => {
+                    queue.push({
+                        text: `Top ${user.rank}: ${user.email}`,
+                        type: 'top'
+                    });
+                });
+
+                // Thêm Recent Donors vào hàng đợi
+                data.recent.forEach(user => {
+                    queue.push({
+                        text: `Anh nuôi mới: ${user.email}`,
+                        type: 'new'
+                    });
+                });
+
+                // Trộn ngẫu nhiên danh sách để hiển thị xen kẽ Top và Mới
+                queue.sort(() => Math.random() - 0.5);
+
+                // Bắt đầu thả từng cái một
+                let index = 0;
+                
+                // Hàm thả đệ quy
+                function floatNext() {
+                    if (queue.length === 0) return; // Hết dữ liệu thì thôi (hoặc gọi lại API)
+                    
+                    const item = queue[index];
+                    spawnFloater(item.text, item.type);
+                    
+                    index = (index + 1) % queue.length; // Lặp lại danh sách vô tận
+                    
+                    // Random thời gian nghỉ giữa các lần thả (2s - 5s)
+                    const nextDelay = Math.random() * 3000 + 2000;
+                    setTimeout(floatNext, nextDelay);
+                }
+
+                // Bắt đầu
+                floatNext();
+
+            } catch (error) {
+                console.error('Lỗi hiệu ứng floating:', error);
+            }
+        }
+
+// Gọi hàm khi trang load xong
+document.addEventListener('DOMContentLoaded', () => {
+    // Các hàm khởi tạo cũ của bạn...
+    filterVersions();
+    
+    // Gọi hiệu ứng mới
+    startFloatingEffect();
+    
+    // Cập nhật lại dữ liệu mỗi 5 phút
+    setInterval(startFloatingEffect, 5 * 60 * 1000); 
+});
     </script>
 </body>
 </html>

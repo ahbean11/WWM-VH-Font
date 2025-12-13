@@ -30,7 +30,7 @@ app = Flask(__name__)
 
 # --- CẤU HÌNH EMAIL (GMAIL) ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
+app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = True
 # Lấy email và mật khẩu ứng dụng từ biến môi trường để bảo mật
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') 

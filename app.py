@@ -168,9 +168,9 @@ def process_font_logic(font_file_path, output_path):
         # 3. Create Fonts.xml file
         fonts_xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
 <Root>
-	<Font><Name>NormalFont</Name><File>normal.ttf</File></Font>
-	<Font><Name>TitleFont</Name><File>title.ttf</File></Font>
-	<Font><Name>ArtFont</Name><File>art.ttf</File></Font>
+    <Font><Name>NormalFont</Name><File>normal.ttf</File></Font>
+    <Font><Name>TitleFont</Name><File>title.ttf</File></Font>
+    <Font><Name>ArtFont</Name><File>art.ttf</File></Font>
 </Root>'''
         
         fonts_xml_path = os.path.join(fonts_dir, 'Fonts.xml')
@@ -712,6 +712,62 @@ def top_donors():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Hàm tạo bảng tự động (chạy được cả trên Gunicorn/Render)
+# --- Thêm vào app.py (gần các route API khác) ---
+
+@app.route('/api/donor-activity')
+def donor_activity():
+    """API lấy dữ liệu Top Donate và Người vừa Donate"""
+    try:
+        # 1. Lấy Top Donors (Dựa trên tổng tiền donate tích lũy)
+        top_users = User.query.filter(User.total_donated > 0)\
+                              .order_by(User.total_donated.desc())\
+                              .limit(5)\
+                              .all()
+        
+        top_data = []
+        for i, user in enumerate(top_users):
+            top_data.append({
+                'type': 'top',
+                'rank': i + 1,
+                'email': mask_email(user.email), # Hàm che email viết ở dưới
+                'amount': user.total_donated
+            })
+
+        # 2. Lấy Recent Donors (Người vừa donate - Dựa trên bảng Donation)
+        # Join bảng User và Donation để lấy email và thời gian
+        recent_donations = db.session.query(User.email, Donation.timestamp, Donation.amount)\
+            .join(Donation, User.id == Donation.user_id)\
+            .order_by(Donation.timestamp.desc())\
+            .limit(10)\
+            .all()
+            
+        recent_data = []
+        for email, timestamp, amount in recent_donations:
+            recent_data.append({
+                'type': 'new',
+                'email': mask_email(email),
+                'time': timestamp.isoformat()
+            })
+
+        return jsonify({
+            'success': True,
+            'top': top_data,
+            'recent': recent_data
+        })
+
+    except Exception as e:
+        print(f"Error fetching donor activity: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def mask_email(email):
+    """Hàm phụ trợ che email"""
+    if not email: return "Ẩn danh"
+    parts = email.split('@')
+    if len(parts) != 2: return "****"
+    name, domain = parts
+    if len(name) > 3:
+        return f"{name[:3]}***@{domain}"
+    return f"***@{domain}"
 def create_tables():
     with app.app_context():
         db.create_all()
